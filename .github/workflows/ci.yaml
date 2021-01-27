@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Tests
         shell: bash -l {0}
-        run: pytest --cov --cov-report=xml
+        run: pytest --cov-report xml
         
   upstream-dev:
     name: upstream-dev
