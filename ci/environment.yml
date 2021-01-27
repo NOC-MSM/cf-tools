@@ -1,0 +1,11 @@
+name: cf_tools_test
+channels:
+  - conda-forge
+dependencies:
+  - pytest-cov
+  - pytest
+  - netcdf4
+  - xarray
+  - cf_xarray
+  - xgcm
+  - pip

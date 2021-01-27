@@ -1,0 +1,12 @@
+name: cf_tools_test_dev
+channels:
+  - conda-forge
+dependencies:
+  - pytest-cov
+  - pytest
+  - netcdf4
+  - pip
+  - pip:
+      - git+https://github.com/pydata/xarray
+      - git+https://github.com/xgcm/xgcm
+      - git+https://github.com/xarray-contrib/cf-xarray

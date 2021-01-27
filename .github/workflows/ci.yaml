@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: "main"
+  pull_request:
+    branches: "*"
+  schedule:
+    - cron: "0 13 * * 1"
+
+jobs:
+  build:
+    name: Build (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8", "3.9"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          environment-file: ci/environment.yml
+          activate-environment: cf_tools_test
+          auto-update-conda: false
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up conda environment
+        shell: bash -l {0}
+        run: |
+          python -m pip install -e .
+          conda list
+
+      - name: Run Tests
+        shell: bash -l {0}
+        run: pytest --cov-report=xml
+        
+  upstream-dev:
+    name: upstream-dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          environment-file: ci/upsteam_dev_env.yml
+          activate-environment: cf_tools_test_dev
+          auto-update-conda: false
+
+      - name: Set up conda environment
+        shell: bash -l {0}
+        run: |
+          python -m pip install -e .
+          conda list
+
+      - name: Run Tests
+        shell: bash -l {0}
+        run: pytest --no-cov
+
