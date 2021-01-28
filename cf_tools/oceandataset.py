@@ -34,7 +34,7 @@ class OceanDataset:
             Whether to add missing coordinates and cell_measures
         """
 
-        self._dataset = assign_cell_measures_and_coordinates(dataset)
+        self._dataset = dataset
         self._options: Dict[str, Any] = {}
         self._initialize_options()
 
@@ -56,7 +56,7 @@ class OceanDataset:
         Dataset
         """
 
-        return self._dataset
+        return assign_cell_measures_and_coordinates(self._dataset)
 
     @property
     def domain(self) -> Dataset:
@@ -71,7 +71,7 @@ class OceanDataset:
         ds = self.dataset
         domain = ds.cf[[var for var in ds.data_vars if "T" not in ds.cf[var].cf.axes]]
 
-        return domain  # assign_cell_measures_and_coordinates(domain)
+        return assign_cell_measures_and_coordinates(domain)
 
     @property
     def options(self) -> Dict[str, Any]:
@@ -252,7 +252,7 @@ class OceanDataset:
 
     def add(self, obj: Union[Dataset, DataArray], **kwargs: Any):
         """
-        Add a Dataset or DataArray to the dataset.
+        Add variables to the dataset.
 
         Parameters
         ----------
@@ -263,7 +263,7 @@ class OceanDataset:
         """
 
         ds = xr.merge([self.dataset.reset_coords(), obj.reset_coords()], **kwargs)
-        self._dataset = assign_cell_measures_and_coordinates(ds)
+        self._dataset = ds
 
     def missing_areas(self, prefix: str = "area", add: bool = False) -> Dataset:
         """
@@ -292,10 +292,7 @@ class OceanDataset:
             areas += [area.rename(prefix + pos)]
         areas = xr.merge(areas)
 
-        if add:
-            self.add(areas)
-
-        return assign_cell_measures_and_coordinates(areas)
+        return self._maybe_add_and_return(areas, add)
 
     def missing_depths_at_rest(
         self, prefix: str = "depth0", add: bool = False
@@ -352,7 +349,13 @@ class OceanDataset:
                 depths += [depth.rename(prefix + pos_out)]
         depths = xr.merge(depths)
 
-        if add:
-            self.add(depths)
+        return self._maybe_add_and_return(depths, add)
 
-        return assign_cell_measures_and_coordinates(depths)
+    def _maybe_add_and_return(
+        self, obj: Union[Dataset, DataArray], add: bool
+    ) -> Union[Dataset, DataArray]:
+
+        if add:
+            self.add(obj)
+
+        return assign_cell_measures_and_coordinates(obj)
