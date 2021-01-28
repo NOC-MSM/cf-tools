@@ -142,9 +142,9 @@ class NemoDataset(OceanDataset):
         if not output:
             self._dataset = domain_or_dataset
         else:
-            self._dataset = None
             self._domain = domain_or_dataset
             self._output = output
+            self._dataset = self._initialize_dataset()
 
         super().__init__(self.dataset, add_missing=add_missing)
 
@@ -169,22 +169,13 @@ class NemoDataset(OceanDataset):
             if periodic is not None:
                 self.set_options(periodic=periodic)
 
-    @property
-    def dataset(self) -> Dataset:
-        """
-        CF-compliant dataset
+    def _initialize_dataset(self):
 
-        Returns
-        -------
-        Dataset
-        """
-
-        if not self._dataset:
-
-            self._manipulate_domain()
-            self._manipulate_output()
-            self._merge_domain_and_output()
-            self._replace_time_counter()
+        self._manipulate_domain()
+        self._manipulate_output()
+        self._merge_domain_and_output()
+        self._replace_time_counter()
+        del self._domain, self._output
 
         return self._dataset
 
@@ -248,7 +239,6 @@ class NemoDataset(OceanDataset):
 
         ds = xr.merge([self._domain] + list(self._output.values()))
         self._dataset = assign_cell_measures_and_coordinates(ds)
-        del self._domain, self._output
 
     def _replace_time_counter(self):
 
@@ -287,7 +277,7 @@ class NemoDataset(OceanDataset):
                 elif time_dim.endswith("_centered") and time.endswith("_instant"):
                     ds[time].attrs["c_grid_axis_shift"] = 0.5
 
-        self._dataset = assign_cell_measures_and_coordinates(ds)
+        self._dataset = ds
 
 
 def _place_on_grid(
