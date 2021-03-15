@@ -3,6 +3,7 @@ Accessor for all models
 """
 from typing import Union
 
+import cf_xarray  # noqa: F401 pylint: disable=W0611
 import xarray as xr
 from xarray import DataArray, Dataset
 
@@ -24,3 +25,7 @@ class Accessor:
         """
 
         self._obj = xarray_obj
+
+    def _get_or_compute(self, varname):
+
+        return hasattr(self, varname)

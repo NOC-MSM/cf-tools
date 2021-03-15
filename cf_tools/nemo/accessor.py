@@ -26,7 +26,7 @@ class NemoAccessor(Accessor):
         """
 
         if "sea_floor_depth_below_geoid" in self._obj.cf:
-            return self._obj["sea_floor_depth_below_geoid"]
+            return self._obj.cf["sea_floor_depth_below_geoid"]
 
         # Variables
         thickness = self._obj.cf["e3t_0"]
