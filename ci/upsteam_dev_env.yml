@@ -5,6 +5,7 @@ dependencies:
   - pytest-cov
   - pytest
   - netcdf4
+  - dask
   - pip
   - pip:
       - git+https://github.com/pydata/xarray
