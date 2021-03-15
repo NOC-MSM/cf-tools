@@ -5,6 +5,7 @@ dependencies:
   - pytest-cov
   - pytest
   - netcdf4
+  - dask
   - xarray
   - cf_xarray
   - xgcm
