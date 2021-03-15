@@ -1,8 +1,8 @@
 # .pre-commit-config.yaml
 
 # pylint has issues with python 3.9
-default_language_version:
-    python: python3.8
+#default_language_version:
+#    python: python3.8
 
 repos:
 
@@ -22,16 +22,16 @@ repos:
        - id: flake8
 
   - repo: https://github.com/terrencepreilly/darglint
-    rev: v1.5.8
+    rev: v1.7.0
     hooks:
        - id: darglint
 
   - repo: https://github.com/PyCQA/pylint
-    rev: pylint-2.6.0
+    rev: pylint-2.7.2
     hooks:
        - id: pylint
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.800
+    rev: v0.812
     hooks:
        - id: mypy
