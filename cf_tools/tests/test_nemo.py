@@ -7,8 +7,10 @@ import os
 
 import pytest
 import xarray as xr
+from numpy.testing import assert_equal
 from xarray.testing import assert_identical
 
+import cf_tools.nemo  # noqa: F401 pylint: disable=W0611
 from cf_tools.nemo import standardize_domain, standardize_output
 
 from .datasets import orca2_ice_pisces
@@ -236,3 +238,15 @@ def test_all_output():
     expected = domain.cf.standard_names["cell_thickness"] + ["e3t", "e3u", "e3v", "e3w"]
     actual = ds.cf.standard_names["cell_thickness"]
     assert set(expected) == set(actual)
+
+
+def test_sea_floor_depth_below_geoid():
+
+    ds = standardize_domain(orca2_ice_pisces["mesh_mask"])
+    bathy = ds.nemo_tools.sea_floor_depth_below_geoid
+    depth = ds["gdept_0"]
+
+    actual = depth.where(depth > bathy)
+    actual = actual.where(actual.isel(z=-1).notnull(), 0).argmin("z").values
+    expected = ds["mbathy"].values
+    assert_equal(expected, actual)
