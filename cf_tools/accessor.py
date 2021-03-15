@@ -25,7 +25,3 @@ class Accessor:
         """
 
         self._obj = xarray_obj
-
-    def _get_or_compute(self, varname):
-
-        return hasattr(self, varname)
