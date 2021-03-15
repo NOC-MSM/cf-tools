@@ -186,15 +186,53 @@ def test_output(ds, domain, dims, hgrid):
             assert set(output[var].dims) <= {var.replace("_bounds", ""), "axis_nbounds"}
 
 
-@pytest.mark.parametrize(
-    "domain", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
-def test_merge_output(domain):
+def test_all_output():
 
+    domain = standardize_domain(orca2_ice_pisces["mesh_mask"])
     datasets = [
         standardize_output(
             orca2_ice_pisces[key], domain, hgrid="T" if key == "icemod" else None
         )
         for key in {"grid_T", "grid_U", "grid_V", "grid_W", "icemod"}
     ]
-    xr.merge(datasets)
+    ds = xr.merge(datasets)
+
+    # Axes
+    expected = {**domain.cf.axes, **{"T": ["time_instant", "time_centered"]}}
+    actual = ds.cf.axes
+    assert {key: set(value) for key, value in expected.items()} == {
+        key: set(value) for key, value in actual.items()
+    }
+
+    # Coordinates
+    expected = {**domain.cf.coordinates, **{"time": ["time_instant", "time_centered"]}}
+    actual = ds.cf.coordinates
+    assert {key: set(value) for key, value in expected.items()} == {
+        key: set(value) for key, value in actual.items()
+    }
+
+    # Cell measures
+    expected = {
+        **domain.cf.cell_measures,
+        **{
+            "thickness": {
+                "e3t",
+                "e3u",
+                "e3v",
+                "e3w",
+                "e3t_0",
+                "e3u_0",
+                "e3v_0",
+                "e3f_0",
+            }
+        },
+    }
+    actual = ds.cf.cell_measures
+    assert {key: set(value) for key, value in expected.items()} == {
+        key: set(value) for key, value in actual.items()
+    }
+
+    # Cell thickness
+    expected = domain.cf.standard_names["cell_thickness"] + ["e3t", "e3u", "e3v", "e3w"]
+    actual = ds.cf.standard_names["cell_thickness"]
+    assert set(expected) == set(actual)
