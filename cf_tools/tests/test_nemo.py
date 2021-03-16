@@ -15,13 +15,12 @@ from cf_tools.nemo import standardize_domain, standardize_output
 
 from .datasets import orca2_ice_pisces
 
+std_domain = standardize_domain(orca2_ice_pisces["domain_cfg"])
+std_mesh = standardize_domain(orca2_ice_pisces["mesh_mask"])
 
-@pytest.mark.parametrize(
-    "obj", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
-def test_domain_axes(obj):
 
-    ds = standardize_domain(obj)
+@pytest.mark.parametrize("ds", [std_domain, std_mesh])
+def test_domain_axes(ds):
 
     actual = set(ds.cf.axes["X"])
     expected = {"x", "x_right"}
@@ -38,12 +37,8 @@ def test_domain_axes(obj):
     assert "T" not in ds.cf.axes
 
 
-@pytest.mark.parametrize(
-    "obj", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
-def test_domain_coordinates(obj):
-
-    ds = standardize_domain(obj)
+@pytest.mark.parametrize("ds", [std_domain, std_mesh])
+def test_domain_coordinates(ds):
 
     actual = set(ds.cf.coordinates["longitude"])
     expected = {"glamt", "glamu", "glamv", "glamf"}
@@ -56,7 +51,7 @@ def test_domain_coordinates(obj):
     actual = set(ds.cf.coordinates.get("vertical", []))
     expected = (
         {"gdept_0", "gdept_1d", "gdepw_0", "gdepw_1d"}
-        if os.path.basename(obj.encoding["source"]) == "mesh_mask.nc"
+        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
         else set()
     )
     assert actual == expected
@@ -64,17 +59,13 @@ def test_domain_coordinates(obj):
     assert "time" not in ds.cf.coordinates
 
 
-@pytest.mark.parametrize(
-    "obj", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
-def test_domain_cell_measures(obj):
-
-    ds = standardize_domain(obj)
+@pytest.mark.parametrize("ds", [std_domain, std_mesh])
+def test_domain_cell_measures(ds):
 
     actual = set(ds.cf.cell_measures["x_spacing"])
     expected = (
         {"e1t", "e1u", "e1v", "e1f"}
-        if os.path.basename(obj.encoding["source"]) == "mesh_mask.nc"
+        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
         else {"e1t", "e1f"}
     )
     assert actual == expected
@@ -82,7 +73,7 @@ def test_domain_cell_measures(obj):
     actual = set(ds.cf.cell_measures["y_spacing"])
     expected = (
         {"e2t", "e2u", "e2v", "e2f"}
-        if os.path.basename(obj.encoding["source"]) == "mesh_mask.nc"
+        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
         else {"e2t", "e2f"}
     )
     assert actual == expected
@@ -90,18 +81,14 @@ def test_domain_cell_measures(obj):
     actual = set(ds.cf.cell_measures.get("thickness", []))
     expected = (
         {"e3t_0", "e3u_0", "e3v_0", "e3f_0"}
-        if os.path.basename(obj.encoding["source"]) == "mesh_mask.nc"
+        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
         else set()
     )
     assert actual == expected
 
 
-@pytest.mark.parametrize(
-    "obj", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
-def test_domain_standard_names(obj):
-
-    ds = standardize_domain(obj)
+@pytest.mark.parametrize("ds", [std_domain, std_mesh])
+def test_domain_standard_names(ds):
 
     actual = set(ds.cf.standard_names["cell_thickness"])
     expected = {
@@ -124,7 +111,7 @@ def test_domain_standard_names(obj):
     actual = set(ds.cf.standard_names["model_level_number_at_sea_floor"])
     expected = {
         "mbathy"
-        if os.path.basename(obj.encoding["source"]) == "mesh_mask.nc"
+        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
         else "bottom_level"
     }
     assert actual == expected
@@ -132,19 +119,16 @@ def test_domain_standard_names(obj):
     actual = set(ds.cf.standard_names.get("sea_binary_mask", []))
     expected = (
         {"tmask", "umask", "vmask", "fmask", "tmaskutil", "umaskutil", "vmaskutil"}
-        if os.path.basename(obj.encoding["source"]) == "mesh_mask.nc"
+        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
         else set()
     )
     assert actual == expected
 
 
-@pytest.mark.parametrize(
-    "obj", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
-def test_recreate_domain(obj):
+@pytest.mark.parametrize("ds", [std_domain, std_mesh])
+def test_recreate_domain(ds):
 
     # Recreate identical objects
-    ds = standardize_domain(obj)
     ds1 = standardize_domain(ds)
     assert_identical(ds, ds1)
 
@@ -159,9 +143,7 @@ def test_recreate_domain(obj):
         (orca2_ice_pisces["icemod"], {"x", "y", "ncatice", "time_centered"}, "T"),
     ],
 )
-@pytest.mark.parametrize(
-    "domain", [orca2_ice_pisces["mesh_mask"], orca2_ice_pisces["domain_cfg"]]
-)
+@pytest.mark.parametrize("domain", [std_mesh, std_domain])
 def test_output(ds, domain, dims, hgrid):
 
     # Test error
@@ -190,7 +172,7 @@ def test_output(ds, domain, dims, hgrid):
 
 def test_all_output():
 
-    domain = standardize_domain(orca2_ice_pisces["mesh_mask"])
+    domain = std_mesh
     datasets = [
         standardize_output(
             orca2_ice_pisces[key], domain, hgrid="T" if key == "icemod" else None
@@ -242,7 +224,7 @@ def test_all_output():
 
 def test_sea_floor_depth_below_geoid():
 
-    ds = standardize_domain(orca2_ice_pisces["mesh_mask"])
+    ds = std_mesh
     bathy = ds.nemo_tools.sea_floor_depth_below_geoid
     depth = ds["gdept_0"]
 
@@ -254,8 +236,8 @@ def test_sea_floor_depth_below_geoid():
 
 def test_vertical():
 
-    expected = standardize_domain(orca2_ice_pisces["mesh_mask"]).cf[["vertical"]]
-    actual = standardize_domain(orca2_ice_pisces["mesh_mask"]).nemo_tools.vertical
-    for var in actual.variables:
-        actual[var].attrs.pop("history", None)
+    expected = std_mesh.cf[["vertical"]]
+    actual = std_domain.nemo_tools.vertical
+    for var in actual.cf.coordinates["vertical"]:
+        actual[var].attrs.pop("history")
     assert_identical(expected, actual)

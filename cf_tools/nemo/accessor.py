@@ -68,17 +68,21 @@ class NemoAccessor(Accessor):
             history="Computed offline",
         )
         grid = self.grid(error=False)
-        if "gdept_0" not in obj.cf.get("vertical", []):
-            da = self._obj.cf["e3w_0"]
-            da = da.where(da.cf["Z"] != da.cf["Z"].cf.isel(Z=0), da / 2)
-            da = grid.cumsum(da, "Z")
-            da.attrs = attrs
-            obj = obj.assign_coords(gdept_0=da)
-        if "gdepw_0" not in obj.cf.get("vertical", []):
-            da = self._obj.cf["e3t_0"]
-            da = grid.cumsum(da, "Z", boundary="fill", fill_value=0)
-            da.attrs = attrs
-            obj = obj.assign_coords(gdepw_0=da)
+
+        for prefix in {"gdept", "gdepw"}:
+            for suffix in {"_0", "_1d"}:
+                # Pick depth and thickness
+                depth_name = prefix + suffix
+                thick_name = f"e3{'t' if prefix.endswith('w') else 'w'}{suffix}"
+                # Compute
+                if depth_name not in obj.cf.coordinates.get("vertical", []):
+                    da = self._obj.cf[thick_name]
+                    # First of t is half of w thickness
+                    if prefix.endswith("t"):
+                        da = da.where(da.cf["Z"] != da.cf["Z"].cf.isel(Z=0), da / 2)
+                    da = grid.cumsum(da, "Z", boundary="fill", fill_value=0)
+                    da.attrs = attrs
+                    obj = obj.assign_coords({depth_name: da})
 
         return obj.cf[["vertical"]]
 
