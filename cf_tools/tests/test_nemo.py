@@ -250,3 +250,12 @@ def test_sea_floor_depth_below_geoid():
     actual = actual.where(actual.isel(z=-1).notnull(), 0).argmin("z").values
     expected = ds["mbathy"].values
     assert_equal(expected, actual)
+
+
+def test_vertical():
+
+    expected = standardize_domain(orca2_ice_pisces["mesh_mask"]).cf[["vertical"]]
+    actual = standardize_domain(orca2_ice_pisces["mesh_mask"]).nemo_tools.vertical
+    for var in actual.variables:
+        actual[var].attrs.pop("history", None)
+    assert_identical(expected, actual)
