@@ -6,6 +6,7 @@ dependencies:
   - pytest
   - netcdf4
   - dask
+  - esmpy
   - pip
   - pip:
       - git+https://github.com/pydata/xarray
