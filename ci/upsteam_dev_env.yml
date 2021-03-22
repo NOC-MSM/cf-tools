@@ -11,3 +11,4 @@ dependencies:
       - git+https://github.com/pydata/xarray
       - git+https://github.com/xgcm/xgcm
       - git+https://github.com/xarray-contrib/cf-xarray
+      - git+https://github.com/pangeo-data/xESMF

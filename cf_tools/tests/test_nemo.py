@@ -8,7 +8,7 @@ import os
 import pytest
 import xarray as xr
 from numpy.testing import assert_equal
-from xarray.testing import assert_identical
+from xarray.testing import assert_allclose, assert_identical
 
 import cf_tools.nemo  # noqa: F401 pylint: disable=W0611
 from cf_tools.nemo import standardize_domain, standardize_output
@@ -17,6 +17,14 @@ from .datasets import orca2_ice_pisces
 
 std_domain = standardize_domain(orca2_ice_pisces["domain_cfg"])
 std_mesh = standardize_domain(orca2_ice_pisces["mesh_mask"])
+std_ds = xr.merge(
+    [
+        standardize_output(
+            orca2_ice_pisces[key], std_mesh, hgrid="T" if key == "icemod" else None
+        )
+        for key in {"grid_T", "grid_U", "grid_V", "grid_W", "icemod"}
+    ]
+)
 
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
@@ -173,13 +181,7 @@ def test_output(ds, domain, dims, hgrid):
 def test_all_output():
 
     domain = std_mesh
-    datasets = [
-        standardize_output(
-            orca2_ice_pisces[key], domain, hgrid="T" if key == "icemod" else None
-        )
-        for key in {"grid_T", "grid_U", "grid_V", "grid_W", "icemod"}
-    ]
-    ds = xr.merge(datasets)
+    ds = std_ds
 
     # Axes
     expected = {**domain.cf.axes, **{"T": ["time_instant", "time_centered"]}}
@@ -241,3 +243,42 @@ def test_vertical():
     for var in actual.cf.coordinates["vertical"]:
         actual[var].attrs.pop("history")
     assert_identical(expected, actual)
+
+
+def test_transect():
+
+    ds = std_ds
+
+    lons = [ds["glamt"].min().values, ds["glamt"].max().values]
+    lats = [ds["gphit"].min().values, ds["gphit"].max().values]
+    transect = ds.nemo_tools.extract_transect_along_f(lons, lats)
+
+    # Dimensions
+    expected = {
+        "location",
+        "axis_nbounds",
+        "z",
+        "z_left",
+        "time_centered",
+        "time_instant",
+        "ncatice",
+    }
+    actual = set(transect.dims)
+    assert expected == actual
+
+    # Attributes
+    for var in set(ds.variables) - {"x", "x_right", "y", "y_right"}:
+        expected = ds[var].attrs
+        actual = transect[var].attrs
+        assert expected == actual
+
+    # Coordinates
+    for coord in ["glam", "gphi"]:
+        assert all(
+            transect[coord + "u"].notnull() + transect[coord + "v"].notnull() == 1
+        )
+        vel_coord = transect[coord + "u"].where(
+            transect[coord + "u"].notnull(), transect[coord + "v"]
+        )
+        for grid in ["t", "f"]:
+            assert_allclose(vel_coord, transect[coord + grid], 1.0e-3)

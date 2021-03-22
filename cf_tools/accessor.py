@@ -1,11 +1,14 @@
 """
 Accessor for all models
 """
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import cf_xarray  # noqa: F401 pylint: disable=W0611
+import numpy as np
 import xarray as xr
 from xarray import DataArray, Dataset
+from xesmf import Regridder
+from xgcm import Grid
 
 
 @xr.register_dataset_accessor("cf_tools")
@@ -71,4 +74,208 @@ class Accessor:
             Options currently set
         """
 
-        return self._options if self._options else dict()
+        return self._options if self._options else {}
+
+    def grid(self, error: bool = True) -> Grid:
+        """
+        Create xgcm Grid object
+
+        Parameters
+        ----------
+        error: bool
+            Raise error if options must be set
+
+        Returns
+        -------
+        Grid:
+            xgcm Grid object
+
+        Raises
+        ------
+        ValueError
+            If periodic is not set
+        """
+
+        # Periodic
+        periodic = self.options.get("periodic")
+        if periodic is None and error:
+            raise ValueError(
+                "`periodic` must be set using `.cf_tools.set_options`. "
+                "See: https://xgcm.readthedocs.io/en/latest/api.html#grid"
+            )
+
+        # Kwargs
+        kwargs = dict()
+        if periodic is not None:
+            kwargs["periodic"] = periodic
+
+        return Grid(self._obj, **kwargs)
+
+    @property
+    def _separated_arakawa_grids(self) -> Dict[str, Dataset]:
+
+        axes = self.grid(error=False).axes
+        obj = self._obj
+
+        obj = obj.drop_vars(
+            [var for var in obj.data_vars if not {"X", "Y"} <= set(obj[var].cf.axes)]
+        )
+
+        assert {"X", "Y"} <= set(axes), "Object does not have X and Y axes"
+        x_coords = axes["X"].coords
+        y_coords = axes["Y"].coords
+        assert (
+            len(x_coords) == len(y_coords) == 2
+        ), "Only two X and Y dimensions are allowed"
+
+        dims_to_drop = dict(
+            T=[dim for shift, dim in x_coords.items() if shift != "center"]
+            + [dim for shift, dim in y_coords.items() if shift != "center"],
+            U=[dim for shift, dim in x_coords.items() if shift == "center"]
+            + [dim for shift, dim in y_coords.items() if shift != "center"],
+            V=[dim for shift, dim in x_coords.items() if shift != "center"]
+            + [dim for shift, dim in y_coords.items() if shift == "center"],
+            F=[dim for shift, dim in x_coords.items() if shift == "center"]
+            + [dim for shift, dim in y_coords.items() if shift == "center"],
+        )
+
+        return {key: obj.drop_dims(value) for key, value in dims_to_drop.items()}
+
+    def extract_transect_along_f(self, lons: List[float], lats: List[float]) -> Dataset:
+        """
+        Return a transect defined at U and V locations.
+        T and F fields are interpolated, whereas U and V are not.
+
+        Parameters
+        ----------
+        lons: list
+            Longitudes defining the transect
+        lats: list
+            Latitudes defining the transect
+
+        Returns
+        -------
+        Dataset
+            Transect along F grid
+        """
+
+        # Extract transect defined by F points.
+        arakawas = self._separated_arakawa_grids
+        ds = _extract_transect(arakawas["F"], lons, lats, no_boundaries=True)
+
+        # F: average adjacent points.
+        coords = {
+            coord: da.rolling(location=2).mean().isel(location=slice(1, None))
+            for coord, da in ds.coords.items()
+            if "location" in da.dims
+        }
+        ds = ds.rolling(location=2).mean().isel(location=slice(1, None))
+        for coord, da in coords.items():
+            ds[coord] = da
+        ds["location"] = ds["location"]
+        arakawas["F"] = ds
+
+        # U, V: no interpolation.
+        for grid in ["U", "V"]:
+            ds = arakawas[grid]
+            mask = xr.where(
+                np.logical_and(
+                    *(arakawas["F"].cf[axis].isin(ds.cf[axis]) for axis in ["X", "Y"])
+                ),
+                1,
+                0,
+            )
+            arakawas[grid] = ds.cf.sel(
+                {
+                    axis: arakawas["F"].cf[axis].where(mask, drop=True)
+                    for axis in ["X", "Y"]
+                }
+            )
+
+        # T: linear interpolation.
+        ds = arakawas["T"]
+        ds = ds.cf.sel(
+            {
+                axis: xr.concat(
+                    [
+                        arakawas["F"]
+                        .cf[axis]
+                        .where(
+                            arakawas["F"].cf[axis].isin(ds.cf[axis]),
+                            arakawas["F"].cf[axis] + shift,
+                        )
+                        for shift in (-0.5, 0.5)
+                    ],
+                    "tmp_dim",
+                )
+                for axis in ("X", "Y")
+            }
+        )
+        coords = {
+            coord: da.mean("tmp_dim", keep_attrs=True)
+            for coord, da in ds.coords.items()
+            if "tmp_dim" in da.dims
+        }
+        ds = ds.mean("tmp_dim", keep_attrs=True)
+        arakawas["T"] = ds.assign_coords(coords)
+
+        # Merge
+        arakawas_merged = xr.merge(arakawas.values())
+        missing_vars = set(self._obj.variables) - set(arakawas_merged.variables)
+        arakawas_merged = arakawas_merged.cf.drop_vars(["X", "Y"])
+
+        return xr.merge([arakawas_merged, self._obj[list(missing_vars)]])
+
+
+def _extract_transect(
+    ds: Dataset,
+    lons: List[float],
+    lats: List[float],
+    no_boundaries: Optional[bool] = None,
+) -> Dataset:
+
+    # Find indexes defining the transect (exclude first/last row/column)
+    ds_in = ds.cf[["longitude", "latitude"]]
+    if no_boundaries:
+        ds_in = ds_in.cf.isel(X=slice(1, -1), Y=slice(1, -1))
+    ds_out = Dataset(dict(lon=lons, lat=lats))
+    regridder = Regridder(ds_in, ds_out, "nearest_s2d", locstream_out=True)
+    iinds, jinds = xr.broadcast(
+        *(
+            DataArray(range(ds_in.cf.sizes[axis]), dims=ds_in.cf[axis].dims)
+            for axis in ("X", "Y")
+        )
+    )
+    iinds = regridder(iinds).values.astype(int)
+    jinds = regridder(jinds).values.astype(int)
+
+    # Add points halving steps until -1 <= step <= 1
+    insert_inds = None
+    while insert_inds is None or len(insert_inds):
+        idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
+        mask = np.logical_or(np.abs(idiff) > 1, np.abs(jdiff) > 1)
+        insert_inds = np.where(mask)[0]
+        iinds, jinds = (
+            np.insert(inds, insert_inds + 1, inds[insert_inds] + diff[insert_inds] // 2)
+            for inds, diff in zip([iinds, jinds], [idiff, jdiff])
+        )
+
+    # Remove diagonal jumps
+    idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
+    mask = np.logical_and(idiff, jdiff)
+    insert_inds = np.where(mask)[0]
+    iinds = np.insert(iinds, insert_inds + 1, iinds[insert_inds + 1])
+    jinds = np.insert(jinds, insert_inds + 1, jinds[insert_inds])
+    if no_boundaries:
+        iinds += 1
+        jinds += 1
+
+    # Sanity check
+    idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
+    assert all(idiff * jdiff == 0) & all(
+        np.abs(idiff + jdiff) == 1
+    ), "Path is not continuous"
+
+    return ds.cf.isel(
+        X=DataArray(iinds, dims="location"), Y=DataArray(jinds, dims="location")
+    )
