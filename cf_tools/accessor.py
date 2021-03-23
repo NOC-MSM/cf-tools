@@ -277,7 +277,10 @@ class Accessor:
         return self._volume_flux_along_axis("y")
 
     def ocean_volume_transport_across_line(
-        self, flip_x: Optional[bool] = None, flip_y: Optional[bool] = None
+        self,
+        flip_x: Optional[bool] = None,
+        flip_y: Optional[bool] = None,
+        mask: Optional[DataArray] = None,
     ):
         """
         Return ocean_volume_transport_across_line computing it if missing
@@ -288,6 +291,8 @@ class Accessor:
             Whether to flip x-velocity
         flip_y: bool, optional
             Whether to flip y-velocity
+        mask: DataArray, optional
+            Mask to apply to the velocities
 
         Returns
         -------
@@ -297,6 +302,8 @@ class Accessor:
         x_transport = (-1 if flip_x else 1) * self.ocean_volume_x_transport
         y_transport = (-1 if flip_y else 1) * self.ocean_volume_y_transport
         transport = x_transport.fillna(y_transport)
+        if mask is not None:
+            transport = transport.where(mask, 0)
         transport = transport.cf.sum(
             ["station"] + ["Z"] if "Z" in transport.cf.axes else []
         )
