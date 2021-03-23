@@ -25,6 +25,9 @@ std_ds = xr.merge(
         for key in {"grid_T", "grid_U", "grid_V", "grid_W", "icemod"}
     ]
 )
+lons = [std_ds["glamt"].min().values, std_ds["glamt"].max().values]
+lats = [std_ds["gphit"].min().values, std_ds["gphit"].max().values]
+transect = std_ds.nemo_tools.extract_transect_along_f(lons, lats)
 
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
@@ -249,13 +252,9 @@ def test_transect():
 
     ds = std_ds
 
-    lons = [ds["glamt"].min().values, ds["glamt"].max().values]
-    lats = [ds["gphit"].min().values, ds["gphit"].max().values]
-    transect = ds.nemo_tools.extract_transect_along_f(lons, lats)
-
     # Dimensions
     expected = {
-        "location",
+        "station",
         "axis_nbounds",
         "z",
         "z_left",
@@ -277,8 +276,50 @@ def test_transect():
         assert all(
             transect[coord + "u"].notnull() + transect[coord + "v"].notnull() == 1
         )
-        vel_coord = transect[coord + "u"].where(
-            transect[coord + "u"].notnull(), transect[coord + "v"]
-        )
+        vel_coord = transect[coord + "u"].fillna(transect[coord + "v"])
         for grid in ["t", "f"]:
             assert_allclose(vel_coord, transect[coord + grid], 1.0e-3)
+
+
+def test_transport():
+
+    ds = std_ds
+
+    # Don't compute
+    expected = ds.cf["uocetr_eff"]
+    actual = ds.nemo_tools.ocean_volume_x_transport
+    assert_identical(expected, actual)
+
+    expected = ds.cf["vocetr_eff"]
+    actual = ds.nemo_tools.ocean_volume_y_transport
+    assert_identical(expected, actual)
+
+    # Compute
+    ds = ds.drop_vars(["uocetr_eff", "vocetr_eff"])
+
+    expected = ds["uo"] * (ds["e2u"] * ds["e3u"])
+    actual = ds.nemo_tools.ocean_volume_x_transport
+    assert_equal(expected.values, actual.values)
+
+    expected = ds["vo"] * (ds["e1v"] * ds["e3v"])
+    actual = ds.nemo_tools.ocean_volume_y_transport
+    assert_equal(expected.values, actual.values)
+
+
+@pytest.mark.parametrize("flip", [[], ["x"], ["y"], ["x", "y"]])
+def test_section_transport(flip):
+
+    ds = transect
+    ds = ds.drop_vars(["uocetr_eff", "vocetr_eff"])
+
+    utran = ds["uo"] * (ds["e2u"] * ds["e3u"])
+    vtran = ds["vo"] * (ds["e1v"] * ds["e3v"])
+    if "x" in flip:
+        utran *= -1
+    if "y" in flip:
+        vtran *= -1
+    expected = (utran.fillna(0) + vtran.fillna(0)).sum(["station", "z"])
+    actual = ds.nemo_tools.ocean_volume_transport_across_line(
+        flip_x="x" in flip, flip_y="y" in flip
+    )
+    assert_equal(expected.values, actual.values)
