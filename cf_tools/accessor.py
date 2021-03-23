@@ -180,7 +180,7 @@ class Accessor:
             ds = arakawas[grid]
             mask = xr.where(
                 np.logical_and(
-                    *(arakawas["F"].cf[axis].isin(ds.cf[axis]) for axis in ["X", "Y"])
+                    *(arakawas["F"].cf[axis].isin(ds.cf[axis]) for axis in ("X", "Y"))
                 ),
                 1,
                 0,
@@ -188,7 +188,7 @@ class Accessor:
             arakawas[grid] = ds.cf.sel(
                 {
                     axis: arakawas["F"].cf[axis].where(mask, drop=True)
-                    for axis in ["X", "Y"]
+                    for axis in ("X", "Y")
                 }
             )
 
@@ -299,8 +299,12 @@ class Accessor:
         DataArray
         """
 
-        x_transport = (-1 if flip_x else 1) * self.ocean_volume_x_transport
-        y_transport = (-1 if flip_y else 1) * self.ocean_volume_y_transport
+        x_transport = self.ocean_volume_x_transport
+        y_transport = self.ocean_volume_y_transport
+        if flip_x:
+            x_transport *= -1
+        if flip_y:
+            y_transport *= -1
         transport = x_transport.fillna(y_transport)
         if mask is not None:
             transport = transport.where(mask, 0)

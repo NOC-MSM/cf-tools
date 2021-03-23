@@ -69,8 +69,8 @@ class NemoAccessor(Accessor):
         )
         grid = self.grid(error=False)
 
-        for prefix in {"gdept", "gdepw"}:
-            for suffix in {"_0", "_1d"}:
+        for prefix in ("gdept", "gdepw"):
+            for suffix in ("_0", "_1d"):
                 # Pick depth and thickness
                 depth_name = prefix + suffix
                 thick_name = f"e3{'t' if prefix.endswith('w') else 'w'}{suffix}"
