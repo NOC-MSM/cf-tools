@@ -1,8 +1,8 @@
-.. image:: https://img.shields.io/github/workflow/status/NOC-MSM/cf-tools/CI?logo=github&style=for-the-badge
+.. image:: https://img.shields.io/github/workflow/status/NOC-MSM/cf-tools/CI?logo=github
     :target: https://github.com/NOC-MSM/cf-tools/actions
     :alt: GitHub Workflow CI Status
 
-.. image:: https://img.shields.io/codecov/c/github/NOC-MSM/cf-tools.svg?style=for-the-badge
+.. image:: https://img.shields.io/codecov/c/github/NOC-MSM/cf-tools.svg
     :target: https://codecov.io/gh/NOC-MSM/cf-tools
     :alt: Code Coverage
 
