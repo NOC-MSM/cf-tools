@@ -143,7 +143,7 @@ class Accessor:
 
     def extract_transect_along_f(self, lons: List[float], lats: List[float]) -> Dataset:
         """
-        Return a transect defined at U and V locations.
+        Return a transect defined by U and V grid points.
         T and F fields are interpolated, whereas U and V are not.
 
         Parameters
@@ -165,14 +165,14 @@ class Accessor:
 
         # F: average adjacent points.
         coords = {
-            coord: da.rolling(location=2).mean().isel(location=slice(1, None))
+            coord: da.rolling(station=2).mean().isel(station=slice(1, None))
             for coord, da in ds.coords.items()
-            if "location" in da.dims
+            if "station" in da.dims
         }
-        ds = ds.rolling(location=2).mean().isel(location=slice(1, None))
+        ds = ds.rolling(station=2).mean().isel(station=slice(1, None))
         for coord, da in coords.items():
             ds[coord] = da
-        ds["location"] = ds["location"]
+        ds["station"] = ds["station"]
         arakawas["F"] = ds
 
         # U, V: no interpolation.
@@ -226,6 +226,89 @@ class Accessor:
 
         return xr.merge([arakawas_merged, self._obj[list(missing_vars)]])
 
+    def _volume_flux_along_axis(self, axis: str):
+
+        options = ("x", "y")
+        assert axis in options, f"Axis `{axis}` not available. Options: {options}"
+
+        if f"ocean_volume_{axis}_transport" in self._obj.cf:
+            return self._obj.cf[f"ocean_volume_{axis}_transport"]
+
+        # Compute transport
+        velocity = self._obj.cf[f"sea_water_{axis}_velocity"]
+        cell_area = (
+            velocity.cf[f"{'x' if axis=='y' else 'y'}_spacing"]
+            * velocity.cf["thickness"]
+        )
+        transport = velocity * cell_area
+
+        # Attributes
+        transport.attrs["standard_name"] = f"ocean_volume_{axis}_transport"
+        transport.attrs["long_name"] = f"Volume flux along {axis}-axis"
+        transport.attrs["units"] = "m3 s-1"
+        transport.attrs["history"] = "Computed offline"
+        for attr in {"coordinates", "cell_measures"} & set(velocity.attrs):
+            transport.attrs[attr] = velocity.attrs.get(attr)
+
+        return transport
+
+    @property
+    def ocean_volume_x_transport(self) -> DataArray:
+        """
+        Return ocean_volume_x_transport computing it if missing
+
+        Returns
+        -------
+        DataArray
+        """
+
+        return self._volume_flux_along_axis("x")
+
+    @property
+    def ocean_volume_y_transport(self):
+        """
+        Return ocean_volume_y_transport computing it if missing
+
+        Returns
+        -------
+        DataArray
+        """
+
+        return self._volume_flux_along_axis("y")
+
+    def ocean_volume_transport_across_line(
+        self, flip_x: Optional[bool] = None, flip_y: Optional[bool] = None
+    ):
+        """
+        Return ocean_volume_transport_across_line computing it if missing
+
+        Parameters
+        ----------
+        flip_x: bool, optional
+            Whether to flip x-velocity
+        flip_y: bool, optional
+            Whether to flip y-velocity
+
+        Returns
+        -------
+        DataArray
+        """
+
+        x_transport = (-1 if flip_x else 1) * self.ocean_volume_x_transport
+        y_transport = (-1 if flip_y else 1) * self.ocean_volume_y_transport
+        transport = x_transport.fillna(y_transport)
+        transport = transport.cf.sum(
+            ["station"] + ["Z"] if "Z" in transport.cf.axes else []
+        )
+
+        # Attributes
+        transport.attrs["standard_name"] = "ocean_volume_transport_across_line"
+        transport.attrs["long_name"] = "Volume flux across line"
+        transport.attrs["units"] = "m3 s-1"
+        transport.attrs["history"] = "Computed offline"
+
+        return transport
+
 
 def _extract_transect(
     ds: Dataset,
@@ -277,5 +360,5 @@ def _extract_transect(
     ), "Path is not continuous"
 
     return ds.cf.isel(
-        X=DataArray(iinds, dims="location"), Y=DataArray(jinds, dims="location")
+        X=DataArray(iinds, dims="station"), Y=DataArray(jinds, dims="station")
     )

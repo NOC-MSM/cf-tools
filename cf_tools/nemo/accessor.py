@@ -19,7 +19,7 @@ class NemoAccessor(Accessor):
     @property
     def sea_floor_depth_below_geoid(self) -> DataArray:
         """
-        Retrun sea_floor_depth_below_geoid computing it if missing
+        Return sea_floor_depth_below_geoid computing it if missing
 
         Returns
         -------
