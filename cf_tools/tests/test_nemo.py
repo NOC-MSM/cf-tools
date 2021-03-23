@@ -320,6 +320,6 @@ def test_section_transport(flip):
         vtran *= -1
     expected = (utran.fillna(0) + vtran.fillna(0)).sum(["station", "z"])
     actual = ds.nemo_tools.ocean_volume_transport_across_line(
-        flip_x="x" in flip, flip_y="y" in flip
+        flip_x="x" in flip, flip_y="y" in flip, mask=xr.ones_like(ds["uo"])
     )
     assert_equal(expected.values, actual.values)
