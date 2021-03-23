@@ -6,6 +6,9 @@
     :target: https://codecov.io/gh/NOC-MSM/cf-tools
     :alt: Code Coverage
 
+.. image:: https://results.pre-commit.ci/badge/github/NOC-MSM/cf-tools/main.svg
+    :target: https://results.pre-commit.ci/badge/github/NOC-MSM/cf-tools/main.svg
+    :alt: pre-commit.ci status
 
 cf-tools
 ========
