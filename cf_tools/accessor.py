@@ -10,6 +10,8 @@ from xarray import DataArray, Dataset
 from xesmf import Regridder
 from xgcm import Grid
 
+from .utils import _return_if_exists
+
 
 @xr.register_dataset_accessor("cf_tools")
 class Accessor:
@@ -231,9 +233,6 @@ class Accessor:
         options = ("x", "y")
         assert axis in options, f"Axis `{axis}` not available. Options: {options}"
 
-        if f"ocean_volume_{axis}_transport" in self._obj.cf:
-            return self._obj.cf[f"ocean_volume_{axis}_transport"]
-
         # Compute transport
         velocity = self._obj.cf[f"sea_water_{axis}_velocity"]
         cell_area = (
@@ -252,7 +251,8 @@ class Accessor:
 
         return transport
 
-    @property
+    @property  # type: ignore
+    @_return_if_exists
     def ocean_volume_x_transport(self) -> DataArray:
         """
         Return ocean_volume_x_transport computing it if missing
@@ -264,7 +264,8 @@ class Accessor:
 
         return self._volume_flux_along_axis("x")
 
-    @property
+    @property  # type: ignore
+    @_return_if_exists
     def ocean_volume_y_transport(self):
         """
         Return ocean_volume_y_transport computing it if missing
@@ -276,6 +277,7 @@ class Accessor:
 
         return self._volume_flux_along_axis("y")
 
+    @_return_if_exists
     def ocean_volume_transport_across_line(
         self,
         flip_x: Optional[bool] = None,
@@ -364,9 +366,7 @@ def _extract_transect(
 
     # Sanity check
     idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
-    assert all(idiff * jdiff == 0) & all(
-        np.abs(idiff + jdiff) == 1
-    ), "Path is not continuous"
+    assert all(idiff * jdiff == 0) & all(np.abs(idiff + jdiff) == 1), "Path has jumps"
 
     return ds.cf.isel(
         X=DataArray(iinds, dims="station"), Y=DataArray(jinds, dims="station")

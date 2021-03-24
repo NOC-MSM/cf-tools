@@ -2,7 +2,8 @@
 Utilities
 """
 
-from typing import Dict, List, Optional
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
 
 import cf_xarray  # noqa: F401 pylint: disable=W0611
 from cf_xarray.utils import parse_cell_methods_attr
@@ -81,3 +82,19 @@ def assign_coordinates_and_measures(
                     break
 
     return ds
+
+
+# https://mypy.readthedocs.io/en/stable/generics.html#declaring-decorators
+F = TypeVar("F", bound=Callable[..., Any])  # pylint: disable=C0103
+
+
+def _return_if_exists(func: F) -> F:
+    # pylint: disable=W0212
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if func.__name__ in self._obj.cf:
+            return self._obj.cf[func.__name__]
+        return func(self, *args, **kwargs)
+
+    return cast(F, wrapper)

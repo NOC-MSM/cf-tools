@@ -8,6 +8,7 @@ from xarray import DataArray, Dataset
 from xgcm import Grid
 
 from ..accessor import Accessor
+from ..utils import _return_if_exists
 
 
 @xr.register_dataset_accessor("nemo_tools")
@@ -16,7 +17,8 @@ class NemoAccessor(Accessor):
     Child class for NEMO
     """
 
-    @property
+    @property  # type: ignore
+    @_return_if_exists
     def sea_floor_depth_below_geoid(self) -> DataArray:
         """
         Return sea_floor_depth_below_geoid computing it if missing
@@ -25,9 +27,6 @@ class NemoAccessor(Accessor):
         -------
         DataArray
         """
-
-        if "sea_floor_depth_below_geoid" in self._obj.cf:
-            return self._obj.cf["sea_floor_depth_below_geoid"]
 
         # Variables
         thickness = self._obj.cf["e3t_0"]
