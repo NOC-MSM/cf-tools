@@ -340,8 +340,7 @@ def _extract_transect(
             for axis in ("X", "Y")
         )
     )
-    iinds = regridder(iinds).values.astype(int)
-    jinds = regridder(jinds).values.astype(int)
+    iinds, jinds = (regridder(inds).values.astype(int) for inds in (iinds, jinds))
 
     # Add points halving steps until -1 <= step <= 1
     insert_inds = None
@@ -361,8 +360,7 @@ def _extract_transect(
     iinds = np.insert(iinds, insert_inds + 1, iinds[insert_inds + 1])
     jinds = np.insert(jinds, insert_inds + 1, jinds[insert_inds])
     if no_boundaries:
-        iinds += 1
-        jinds += 1
+        iinds, jinds = (inds + 1 for inds in (iinds, jinds))
 
     # Sanity check
     idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
