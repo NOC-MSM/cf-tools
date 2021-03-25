@@ -12,6 +12,7 @@ from ..utils import _return_if_exists
 
 
 @xr.register_dataset_accessor("nemo_tools")
+@xr.register_dataarray_accessor("nemo_tools")
 class NemoAccessor(Accessor):
     """
     Child class for NEMO

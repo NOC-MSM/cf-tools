@@ -6,6 +6,8 @@ dependencies:
   - pytest
   - netcdf4
   - dask
+  - imageio
+  - matplotlib
   - xarray
   - cf_xarray
   - xgcm

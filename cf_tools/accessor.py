@@ -1,11 +1,17 @@
 """
 Accessor for all models
 """
-from typing import Any, Dict, List, Optional, Union
+import os
+import tempfile
+from pathlib import Path
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 
 import cf_xarray  # noqa: F401 pylint: disable=W0611
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from dask.diagnostics import ProgressBar
+from imageio import imread, mimwrite
 from xarray import DataArray, Dataset
 from xesmf import Regridder
 from xgcm import Grid
@@ -14,6 +20,7 @@ from .utils import _return_if_exists
 
 
 @xr.register_dataset_accessor("cf_tools")
+@xr.register_dataarray_accessor("cf_tools")
 class Accessor:
     """
     Parent class for all models
@@ -39,13 +46,13 @@ class Accessor:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self._options = self._old_options
 
-    def set_options(self, **kwargs: Any):
+    def set_options(self, **kwargs):
         """
         Set options
 
         Parameters
         ----------
-        **kwargs: Any
+        **kwargs: optional
             Options to set
         """
 
@@ -321,6 +328,107 @@ class Accessor:
         transport.attrs["history"] = "Computed offline"
 
         return transport
+
+    def make_movie(
+        self,
+        func: Callable,
+        uri: Union[str, Path, BinaryIO],
+        mimwrite_kwargs: Optional[Dict[str, Any]] = None,
+        savefig_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ):
+        """
+        Create a movie saving frames in parallel using dask.
+
+        Parameters
+        ----------
+        func: Callable
+            A function returning a figure. The first argument must be a
+            Dataset or a DataArray, corresponding to a single frame (i.e., a block).
+        uri: str, Path, BinaryIO
+             The resource to write the movie to,
+             e.g. a filename, pathlib.Path or file object.
+        mimwrite_kwargs: dict, optional
+            A dictionary with arguments passed on to ``imageio.mimwrite``.
+        savefig_kwargs: dict, optional
+            A dictionary with arguments passed on to ``matplotlib.pyplot.savefig``.
+        **kwargs: optional
+            Additional arguments passed on to ``func``
+
+        Raises
+        ------
+        ValueError
+            If conflicting kwargs are used.
+        """
+
+        # Check kwargs
+        mimwrite_kwargs, savefig_kwargs = (
+            kwargs if kwargs else {} for kwargs in (mimwrite_kwargs, savefig_kwargs)
+        )
+        conflicts = {"uri", "ims"} & set(mimwrite_kwargs)
+        if conflicts:
+            raise ValueError(f"Remove {conflicts} from `mimwrite_kwargs`")
+        mimwrite_kwargs["uri"] = uri
+        conflicts = {"fname"} & set(mimwrite_kwargs)
+        if conflicts:
+            raise ValueError(f"Remove {conflicts} from `savefig_kwargs`")
+
+        # Check time
+        obj = self._obj
+        if len(obj.cf.axes.get("T", [])) != 1:
+            raise ValueError("Object must have one T axis.")
+
+        # Chunk over time
+        chunks = {dim: -1 for dim in obj.dims if dim not in obj.cf.axes["T"]}
+        chunks["T"] = 1
+        obj = obj.cf.chunk(chunks)
+
+        # Create tmp directory
+        with tempfile.TemporaryDirectory() as tmpdirname:
+
+            # Create a DataArray with framenames
+            time_name = obj.cf.axes["T"][0]
+            time_dim = obj[time_name]
+            time_size = obj.sizes[time_name]
+
+            # Create a template for map_blocks
+            template = (
+                DataArray(
+                    range(time_size),
+                    dims=time_name,
+                    coords={time_name: range(time_size)},
+                    name="template",
+                )
+                .to_dataset()
+                .chunk({time_name: 1})
+            )
+
+            def _save_frame(block):
+
+                fig = func(block, **kwargs)
+                index = np.argmin(np.abs(time_dim - block[time_name].values).values)
+                savefig_kwargs["fname"] = os.path.join(
+                    tmpdirname, "frame_" + str(index).zfill(len(str(time_size)))
+                )
+                fig.savefig(**savefig_kwargs)
+                plt.close(fig)
+
+                return template.isel({time_name: [index]})
+
+            # Create frames using dask
+            with ProgressBar():
+                print("Creating frames", end=": ")
+                obj.map_blocks(_save_frame, template=template).compute()
+                print("done.")
+
+            # Create movie
+            mimwrite_kwargs["ims"] = [
+                imread(os.path.join(tmpdirname, basename))
+                for basename in sorted(os.listdir(tmpdirname))
+            ]
+            print("Creating movie", end=": ")
+            mimwrite(**mimwrite_kwargs)
+            print("done.")
 
 
 def _extract_transect(
