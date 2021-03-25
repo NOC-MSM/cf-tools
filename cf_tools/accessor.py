@@ -422,11 +422,11 @@ class Accessor:
                 print("done.")
 
             # Create movie
+            print("Creating movie", end=": ")
             mimwrite_kwargs["ims"] = [
                 imread(os.path.join(tmpdirname, basename))
                 for basename in sorted(os.listdir(tmpdirname))
             ]
-            print("Creating movie", end=": ")
             mimwrite(**mimwrite_kwargs)
             print("done.")
 
