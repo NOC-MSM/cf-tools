@@ -338,7 +338,7 @@ class Accessor:
         **kwargs,
     ):
         """
-        Create movies saving frame in parallel using dask.
+        Create a movie saving frames in parallel using dask.
 
         Parameters
         ----------

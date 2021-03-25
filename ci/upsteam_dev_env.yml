@@ -9,6 +9,7 @@ dependencies:
   - esmpy
   - imageio
   - matplotlib
+  - pooch
   - pip
   - pip:
       - git+https://github.com/pydata/xarray
