@@ -5,7 +5,8 @@ data/
 *.nc
 
 # Test notebooks
-*Untitled.ipynb
+Untitled*.ipynb
+tmp_notebooks/
 
 # Dask
 dask-worker-space/

@@ -4,7 +4,9 @@ Tests specific for NEMO
 # pylint: disable=C0116
 
 import os
+from tempfile import TemporaryDirectory
 
+import matplotlib.pyplot as plt
 import pytest
 import xarray as xr
 from numpy.testing import assert_equal
@@ -23,7 +25,8 @@ std_ds = xr.merge(
             orca2_ice_pisces[key], std_mesh, hgrid="T" if key == "icemod" else None
         )
         for key in {"grid_T", "grid_U", "grid_V", "grid_W", "icemod"}
-    ]
+    ],
+    compat="override",
 )
 lons = [std_ds["glamt"].min().values, std_ds["glamt"].max().values]
 lats = [std_ds["gphit"].min().values, std_ds["gphit"].max().values]
@@ -323,3 +326,16 @@ def test_section_transport(flip):
         flip_x="x" in flip, flip_y="y" in flip, mask=xr.ones_like(ds["uo"])
     )
     assert_equal(expected.values, actual.values)
+
+
+def test_movie():
+    def func(da):
+        fig, axis = plt.subplots(1, 1)
+        da.plot(ax=axis)
+        return fig
+
+    da = std_ds.cf["sst_m"]
+    with TemporaryDirectory() as tmpdirname:
+        uri = os.path.join(tmpdirname, "movie.gif")
+        da.nemo_tools.make_movie(func, uri)
+        assert os.path.exists(uri)
