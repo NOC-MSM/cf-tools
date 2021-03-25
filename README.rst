@@ -12,3 +12,14 @@
 
 cf-tools
 ========
+
+Tools to post-process OGCMs output based on CF Conventions.
+The parent accessor gives access to general methods and properties, child accessors inherit all methods and properties from the parent adding model-specific features.
+
+Parent accessor:
+
+* `obj.cf_tools`
+
+Child accessors:
+
+* `obj.nemo_tools`
