@@ -12,7 +12,7 @@ import xarray as xr
 from numpy.testing import assert_equal
 from xarray.testing import assert_allclose, assert_identical
 
-import cf_tools.nemo  # noqa: F401 pylint: disable=W0611
+import cf_tools  # noqa: F401 pylint: disable=W0611
 from cf_tools.nemo import standardize_domain, standardize_output
 
 from .datasets import orca2_ice_pisces
