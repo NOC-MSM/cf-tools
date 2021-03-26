@@ -2,7 +2,7 @@
     :target: https://github.com/NOC-MSM/cf-tools/actions
     :alt: GitHub Workflow CI Status
 
-.. image:: https://img.shields.io/codecov/c/github/NOC-MSM/cf-tools.svg
+.. image:: https://codecov.io/gh/NOC-MSM/cf-tools/branch/main/graph/badge.svg?token=2DR8TODWUV
     :target: https://codecov.io/gh/NOC-MSM/cf-tools
     :alt: Code Coverage
 
