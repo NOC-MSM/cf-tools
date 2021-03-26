@@ -366,8 +366,8 @@ class Accessor:
         prac_sal = self._obj.cf["sea_water_practical_salinity"]
         lon = prac_sal.cf["longitude"]
         lat = prac_sal.cf["latitude"]
-        depth = np.abs(prac_sal.cf["vertical"])
-        press = gsw.p_from_z(depth, lat)
+        depth = prac_sal.cf["vertical"]
+        press = gsw.p_from_z(depth if depth.attrs["positive"] == "up" else -depth, lat)
         abs_sal = gsw.SA_from_SP(prac_sal, press, lon, lat)
 
         # Attributes
