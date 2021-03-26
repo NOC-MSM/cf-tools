@@ -339,3 +339,11 @@ def test_movie():
         uri = os.path.join(tmpdirname, "movie.gif")
         da.nemo_tools.make_movie(func, uri)
         assert os.path.exists(uri)
+
+
+def test_density():
+
+    expected = std_ds["rhop"].where(std_ds["rhop"] != 0) - 1.0e3
+    actual = std_ds.drop_vars("rhop").nemo_tools.sea_water_sigma_theta
+    mask = actual.notnull() & expected.notnull()
+    assert_allclose(expected.where(mask), actual.where(mask), rtol=1.0e-4)

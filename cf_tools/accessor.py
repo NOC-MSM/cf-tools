@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 
 import cf_xarray  # noqa: F401 pylint: disable=W0611
+import gsw
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -146,6 +147,27 @@ class Accessor:
             + [dim for shift, dim in y_coords.items() if shift == "center"],
             F=[dim for shift, dim in x_coords.items() if shift == "center"]
             + [dim for shift, dim in y_coords.items() if shift == "center"],
+        )
+
+        return {key: obj.drop_dims(value) for key, value in dims_to_drop.items()}
+
+    @property
+    def _separated_vertical_grids(self) -> Dict[str, Dataset]:
+
+        axes = self.grid(error=False).axes
+        obj = self._obj
+
+        obj = obj.drop_vars(
+            [var for var in obj.data_vars if not {"Z"} <= set(obj[var].cf.axes)]
+        )
+
+        assert {"Z"} <= set(axes), "Object does not have X and Y axes"
+        z_coords = axes["Z"].coords
+        assert len(z_coords) == 2, "Only two Z dimensions are allowed"
+
+        dims_to_drop = dict(
+            T=[dim for shift, dim in z_coords.items() if shift != "center"],
+            W=[dim for shift, dim in z_coords.items() if shift == "center"],
         )
 
         return {key: obj.drop_dims(value) for key, value in dims_to_drop.items()}
@@ -328,6 +350,81 @@ class Accessor:
         transport.attrs["history"] = "Computed offline"
 
         return transport
+
+    @property  # type: ignore
+    @_return_if_exists
+    def sea_water_absolute_salinity(self) -> DataArray:
+        """
+        Return sea_water_absolute_salinity computing it using teos-10 if missing.
+
+        Returns
+        -------
+        DataArray
+        """
+
+        # Compute absolute salinity
+        prac_sal = self._obj.cf["sea_water_practical_salinity"]
+        lon = prac_sal.cf["longitude"]
+        lat = prac_sal.cf["latitude"]
+        depth = np.abs(prac_sal.cf["vertical"])
+        press = gsw.p_from_z(depth, lat)
+        abs_sal = gsw.SA_from_SP(prac_sal, press, lon, lat)
+
+        # Attributes
+        abs_sal.attrs["standard_name"] = "sea_water_absolute_salinity"
+        abs_sal.attrs["long_name"] = "Absolute salinity"
+        abs_sal.attrs["units"] = "g kg-1"
+        abs_sal.attrs["history"] = "Computed offline"
+
+        return abs_sal
+
+    @property  # type: ignore
+    @_return_if_exists
+    def sea_water_conservative_temperature(self) -> DataArray:
+        """
+        Return sea_water_conservative_temperature computing it using teos-10 if missing.
+
+        Returns
+        -------
+        DataArray
+        """
+
+        # Compute conservative temperature
+        abs_sal = self.sea_water_absolute_salinity
+        pot_tem = self._obj.cf["sea_water_potential_temperature"]
+        con_tem = gsw.CT_from_pt(abs_sal, pot_tem)
+
+        # Attributes
+        con_tem.attrs["standard_name"] = "sea_water_conservative_temperature"
+        con_tem.attrs["long_name"] = "Conservative temperature"
+        con_tem.attrs["units"] = "deg C"
+        con_tem.attrs["history"] = "Computed offline"
+
+        return con_tem
+
+    @property  # type: ignore
+    @_return_if_exists
+    def sea_water_sigma_theta(self) -> DataArray:
+        """
+        Return sea_water_sigma_theta computing it using teos-10 if missing.
+
+        Returns
+        -------
+        DataArray
+        """
+
+        # Compute potential temperature
+        abs_sal = self.sea_water_absolute_salinity
+        con_tem = self.sea_water_conservative_temperature
+        pot_den = gsw.sigma0(abs_sal, con_tem)
+
+        # Attributes
+        pot_den.attrs["standard_name"] = "sea_water_sigma_theta"
+        pot_den.attrs["long_name"] = "Potential density anomaly"
+        pot_den.attrs["units"] = "kg m-3"
+        pot_den.attrs["history"] = "Computed offline"
+
+        return pot_den
 
     def make_movie(
         self,
