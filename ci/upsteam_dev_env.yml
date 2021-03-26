@@ -9,6 +9,7 @@ dependencies:
   - esmpy
   - imageio
   - matplotlib
+  - gsw
   - pooch
   - pip
   - pip:

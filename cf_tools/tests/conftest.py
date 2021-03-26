@@ -11,7 +11,7 @@ data_path = os.path.join(test_path, "data")
 
 # Download data
 tar_path = os.path.join(test_path, "cf-tools-data.tar.gz")
-URL = "https://ndownloader.figshare.com/files/26821919"
+URL = "https://ndownloader.figshare.com/files/27249593"
 
 
 def pytest_configure():

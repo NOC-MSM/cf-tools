@@ -13,9 +13,12 @@ from xarray import Dataset
 from xgcm.autogenerate import generate_grid_ds
 
 from ..utils import assign_coordinates_and_measures
+from .accessor import NemoAccessor  # noqa: F401 pylint: disable=W0611
 
 
-def standardize_domain(ds: Dataset) -> Dataset:
+def standardize_domain(
+    ds: Dataset, add_missing_coords: Optional[None] = None
+) -> Dataset:
     """
     Make NEMO mesh_mask or domain_cfg CF and COMODO compliant.
 
@@ -23,6 +26,8 @@ def standardize_domain(ds: Dataset) -> Dataset:
     ----------
     ds: Dataset
         xarray representation of a mesh_mask or domain_cfg
+    add_missing_coords: bool, optional
+        Add missing coordinates, such as vertical
 
     Returns
     -------
@@ -64,6 +69,10 @@ def standardize_domain(ds: Dataset) -> Dataset:
     # Add missing attributes
     ds = _add_missing_attrs(ds)
 
+    # Add missing coordinates
+    if add_missing_coords and "vertical" not in ds.cf:
+        ds = ds.merge(ds.nemo_tools.vertical)
+
     # Assign coordinates and cell_measures
     ds = assign_coordinates_and_measures(
         ds, arbitrary_measures=_find_arbitrary_measures(ds)
@@ -73,7 +82,10 @@ def standardize_domain(ds: Dataset) -> Dataset:
 
 
 def standardize_output(
-    ds: Dataset, domain: Dataset, hgrid: Optional[str] = None
+    ds: Dataset,
+    domain: Dataset,
+    hgrid: Optional[str] = None,
+    add_missing_coords: Optional[None] = None,
 ) -> Dataset:
     """
     Make NEMO output CF and COMODO compliant.
@@ -88,6 +100,9 @@ def standardize_output(
 
     hgrid: str, optional
         Horizontal grid. Options: {"T", "U", "V", "F"}
+
+    add_missing_coords: bool, optional
+        Add missing coordinates, such as vertical
 
     Returns
     -------
@@ -162,7 +177,7 @@ def standardize_output(
         ds = _swap_time(ds)
 
     # Merge with domain
-    domain = standardize_domain(domain)
+    domain = standardize_domain(domain, add_missing_coords=add_missing_coords)
     ds = xr.merge([domain, ds], compat="override")
 
     # Assign coordinates and cell_measures
