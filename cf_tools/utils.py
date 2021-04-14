@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
 
 import cf_xarray  # noqa: F401 pylint: disable=W0611
 from cf_xarray.utils import parse_cell_methods_attr
-from xarray import Dataset
+from xarray import DataArray, Dataset
 
 
 def assign_coordinates_and_measures(
@@ -95,6 +95,12 @@ def _return_if_exists(func: F) -> F:
     def wrapper(self, *args, **kwargs):
         if func.__name__ in self._obj.cf:
             return self._obj.cf[func.__name__]
-        return func(self, *args, **kwargs)
+
+        # Return nameless DataArray
+        obj = func(self, *args, **kwargs)
+        if isinstance(obj, DataArray):
+            obj.name = None
+
+        return obj
 
     return cast(F, wrapper)
