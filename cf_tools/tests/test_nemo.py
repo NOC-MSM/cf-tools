@@ -4,6 +4,7 @@ Tests specific for NEMO
 # pylint: disable=C0116
 
 import os
+from glob import glob
 from tempfile import TemporaryDirectory
 
 import matplotlib.pyplot as plt
@@ -339,6 +340,20 @@ def test_movie():
         uri = os.path.join(tmpdirname, "movie.gif")
         da.nemo_tools.make_movie(func, uri)
         assert os.path.exists(uri)
+
+    # Reuse frames
+    with TemporaryDirectory() as tmpdirname:
+        uri = os.path.join(tmpdirname, "movie.gif")
+        frames_dir = os.path.join(tmpdirname, "frames")
+        da.nemo_tools.make_movie(func, uri, reuse_frames=True, frames_dir=frames_dir)
+        assert os.path.exists(uri) and os.path.exists(frames_dir)
+
+        frames = glob(os.path.join(frames_dir, "*"))
+        time0 = [os.path.getmtime(frame) for frame in frames]
+        os.remove(frames[0])
+        da.nemo_tools.make_movie(func, uri, reuse_frames=True, frames_dir=frames_dir)
+        time1 = [os.path.getmtime(frame) for frame in frames]
+        assert time0[0] != time1[0] and time0[1:] == time1[1:]
 
 
 def test_density():
