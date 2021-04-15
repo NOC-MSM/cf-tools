@@ -430,6 +430,8 @@ class Accessor:
         self,
         func: Callable,
         uri: Union[str, Path, BinaryIO],
+        reuse_frames: bool = False,
+        frames_dir: Optional[str] = None,
         mimwrite_kwargs: Optional[Dict[str, Any]] = None,
         savefig_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
@@ -443,24 +445,31 @@ class Accessor:
             A function returning a figure. The first argument must be a
             Dataset or a DataArray, corresponding to a single frame (i.e., a block).
         uri: str, Path, BinaryIO
-             The resource to write the movie to,
-             e.g. a filename, pathlib.Path or file object.
+            The resource to write the movie to,
+            e.g. a filename, pathlib.Path or file object.
+        reuse_frames: bool
+            Whether to reuse existing frames. If True, frames are retained.
+        frames_dir: str, optional
+            If reuse_frames=True, defines the directory where to store the frames.
         mimwrite_kwargs: dict, optional
             A dictionary with arguments passed on to ``imageio.mimwrite``.
         savefig_kwargs: dict, optional
             A dictionary with arguments passed on to ``matplotlib.pyplot.savefig``.
         **kwargs: optional
             Additional arguments passed on to ``func``
-
         Raises
         ------
         ValueError
             If conflicting kwargs are used.
         """
+        # pylint: disable=R0913, R0914
 
         # Check kwargs
+        frames_dir = frames_dir or ""
+        if reuse_frames and not frames_dir:
+            raise ValueError("`frames_dir` must be specified when reuse_frames=True")
         mimwrite_kwargs, savefig_kwargs = (
-            kwargs if kwargs else {} for kwargs in (mimwrite_kwargs, savefig_kwargs)
+            kwargs or {} for kwargs in (mimwrite_kwargs, savefig_kwargs)
         )
         conflicts = {"uri", "ims"} & set(mimwrite_kwargs)
         if conflicts:
@@ -481,7 +490,12 @@ class Accessor:
         obj = obj.cf.chunk(chunks)
 
         # Create tmp directory
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+
+            if reuse_frames:
+                os.makedirs(frames_dir, exist_ok=True)
+            else:
+                frames_dir = tmp_dir
 
             # Create a DataArray with framenames
             time_name = obj.cf.axes["T"][0]
@@ -505,27 +519,54 @@ class Accessor:
                 fig = func(block, **kwargs)
                 index = np.argmin(np.abs(time_dim - block[time_name].values).values)
                 savefig_kwargs["fname"] = os.path.join(
-                    tmpdirname, "frame_" + str(index).zfill(len(str(time_size)))
+                    frames_dir, "frame_" + str(index).zfill(len(str(time_size)))
                 )
-                fig.savefig(**savefig_kwargs)
+                try:
+                    fig.savefig(**savefig_kwargs)
+                except:  # noqa: E722
+                    # Delete frame if there's an error
+                    if os.path.exists(savefig_kwargs["fname"]):
+                        os.remove(savefig_kwargs["fname"])
+                    raise
                 plt.close(fig)
 
-                return template.isel({time_name: [index]})
+                return template.sel({time_name: [index]})
+
+            def _list_frames():
+                return [
+                    basename
+                    for basename in sorted(os.listdir(frames_dir))
+                    if basename.startswith("frame_")
+                ]
+
+            # Find existing frames
+            existing_indexes = [
+                int(os.path.splitext(basename)[0].split("_")[-1])
+                for basename in _list_frames()
+            ]
+            if existing_indexes:
+                obj, template = (
+                    ds.drop_isel({time_name: existing_indexes})
+                    for ds in (obj, template)
+                )
 
             # Create frames using dask
-            with ProgressBar():
-                print("Creating frames", end=": ")
-                obj.map_blocks(_save_frame, template=template).compute()
-                print("done.")
+            if obj.sizes[time_name] or not existing_indexes:
+                with ProgressBar():
+                    print(f"Creating frames in {os.path.abspath(frames_dir)}")
+                    obj.map_blocks(_save_frame, template=template).compute()
+            else:
+                print(f"All frames already exist in {os.path.abspath(frames_dir)}")
 
             # Create movie
-            print("Creating movie", end=": ")
+            print(
+                "Creating movie" + os.path.abspath(uri) if isinstance(uri, str) else ""
+            )
             mimwrite_kwargs["ims"] = [
-                imread(os.path.join(tmpdirname, basename))
-                for basename in sorted(os.listdir(tmpdirname))
+                imread(os.path.join(frames_dir, basename))
+                for basename in _list_frames()
             ]
             mimwrite(**mimwrite_kwargs)
-            print("done.")
 
 
 def _extract_transect(
