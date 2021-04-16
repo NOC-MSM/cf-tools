@@ -465,8 +465,9 @@ class Accessor:
         """
         # pylint: disable=R0913, R0914
 
+        obj = self._obj
+
         # Check kwargs
-        frames_dir = frames_dir or ""
         if reuse_frames and not frames_dir:
             raise ValueError("`frames_dir` must be specified when reuse_frames=True")
         mimwrite_kwargs, savefig_kwargs = (
@@ -481,7 +482,6 @@ class Accessor:
             raise ValueError(f"Remove {conflicts} from `savefig_kwargs`")
 
         # Check time
-        obj = self._obj
         if len(obj.cf.axes.get("T", [])) != 1:
             raise ValueError("Object must have one T axis.")
 
@@ -515,13 +515,14 @@ class Accessor:
                 .chunk({time_name: 1})
             )
 
+            def _frame_name(index):
+                return "frame_" + str(index).zfill(len(str(time_size)))
+
             def _save_frame(block):
 
                 fig = func(block, **kwargs)
                 index = np.argmin(np.abs(time_dim - block[time_name].values).values)
-                savefig_kwargs["fname"] = os.path.join(
-                    frames_dir, "frame_" + str(index).zfill(len(str(time_size)))
-                )
+                savefig_kwargs["fname"] = os.path.join(frames_dir, _frame_name(index))
                 try:
                     fig.savefig(**savefig_kwargs)
                 except:  # noqa: E722
@@ -533,27 +534,26 @@ class Accessor:
 
                 return template.sel({time_name: [index]})
 
-            def _list_frames():
+            def _list_existing_frames():
+
+                expected_frames = {_frame_name(index) for index in range(time_size)}
                 return [
                     basename
                     for basename in sorted(os.listdir(frames_dir))
-                    if basename.startswith("frame_")
+                    if os.path.splitext(basename)[0] in expected_frames
                 ]
 
-            # Find existing frames
-            existing_indexes = (
-                [
+            # Find existing indexes
+            if reuse_frames:
+                existing_indexes = [
                     int(os.path.splitext(basename)[0].split("_")[-1])
-                    for basename in _list_frames()
+                    for basename in _list_existing_frames()
                 ]
-                if reuse_frames
-                else []
-            )
-            if existing_indexes:
-                obj, template = (
-                    ds.drop_isel({time_name: existing_indexes})
-                    for ds in (obj, template)
-                )
+                if existing_indexes:
+                    obj, template = (
+                        ds.drop_isel({time_name: existing_indexes})
+                        for ds in (obj, template)
+                    )
 
             # Create frames using dask
             if obj.sizes[time_name] or not existing_indexes:
@@ -569,7 +569,7 @@ class Accessor:
             )
             mimwrite_kwargs["ims"] = [
                 imread(os.path.join(frames_dir, basename))
-                for basename in _list_frames()
+                for basename in _list_existing_frames()
             ]
             mimwrite(**mimwrite_kwargs)
 
