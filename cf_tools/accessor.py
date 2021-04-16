@@ -558,14 +558,16 @@ class Accessor:
             # Create frames using dask
             if obj.sizes[time_name] or not existing_indexes:
                 with ProgressBar():
-                    print(f"Creating frames in {os.path.abspath(frames_dir)}")
+                    print(f"Creating frames: {os.path.abspath(frames_dir)}/")
                     obj.map_blocks(_save_frame, template=template).compute()
             else:
                 print(f"All frames already exist in {os.path.abspath(frames_dir)}")
 
             # Create movie
             print(
-                "Creating movie" + os.path.abspath(uri) if isinstance(uri, str) else ""
+                "Creating movie" + f": {os.path.abspath(uri)}"
+                if isinstance(uri, str)
+                else ""
             )
             mimwrite_kwargs["ims"] = [
                 imread(os.path.join(frames_dir, basename))
