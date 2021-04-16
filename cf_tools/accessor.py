@@ -430,8 +430,8 @@ class Accessor:
         self,
         func: Callable,
         uri: Union[str, Path, BinaryIO],
-        reuse_frames: bool = False,
         frames_dir: Optional[str] = None,
+        reuse_frames: bool = False,
         mimwrite_kwargs: Optional[Dict[str, Any]] = None,
         savefig_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
@@ -447,10 +447,11 @@ class Accessor:
         uri: str, Path, BinaryIO
             The resource to write the movie to,
             e.g. a filename, pathlib.Path or file object.
-        reuse_frames: bool
-            Whether to reuse existing frames. If True, frames are retained.
         frames_dir: str, optional
-            If reuse_frames=True, defines the directory where to store the frames.
+            The directory where to store the frames.
+            Use a temporary directory if not defined.
+        reuse_frames: bool
+            Whether to reuse existing frames.
         mimwrite_kwargs: dict, optional
             A dictionary with arguments passed on to ``imageio.mimwrite``.
         savefig_kwargs: dict, optional
@@ -490,12 +491,12 @@ class Accessor:
         obj = obj.cf.chunk(chunks)
 
         # Create tmp directory
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        with tempfile.TemporaryDirectory() as tempdir:
 
-            if reuse_frames:
+            if frames_dir:
                 os.makedirs(frames_dir, exist_ok=True)
             else:
-                frames_dir = tmp_dir
+                frames_dir = tempdir
 
             # Create a DataArray with framenames
             time_name = obj.cf.axes["T"][0]
@@ -540,10 +541,14 @@ class Accessor:
                 ]
 
             # Find existing frames
-            existing_indexes = [
-                int(os.path.splitext(basename)[0].split("_")[-1])
-                for basename in _list_frames()
-            ]
+            existing_indexes = (
+                [
+                    int(os.path.splitext(basename)[0].split("_")[-1])
+                    for basename in _list_frames()
+                ]
+                if reuse_frames
+                else []
+            )
             if existing_indexes:
                 obj, template = (
                     ds.drop_isel({time_name: existing_indexes})
