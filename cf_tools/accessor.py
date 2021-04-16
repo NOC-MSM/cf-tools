@@ -461,7 +461,7 @@ class Accessor:
         Raises
         ------
         ValueError
-            If conflicting kwargs are used.
+            If conflicting kwargs are used or the time dimension has zero size.
         """
         # pylint: disable=R0913, R0914
 
@@ -482,8 +482,10 @@ class Accessor:
             raise ValueError(f"Remove {conflicts} from `savefig_kwargs`")
 
         # Check time
-        if len(obj.cf.axes.get("T", [])) != 1:
-            raise ValueError("Object must have one T axis.")
+        if len(obj.cf.axes.get("T", [])) != 1 or not obj.cf.sizes["T"]:
+            raise ValueError(
+                "Object must have one and only one `T` axis with size ≥ 1."
+            )
 
         # Chunk over time
         chunks = {dim: -1 for dim in obj.dims if dim not in obj.cf.axes["T"]}
@@ -544,24 +546,27 @@ class Accessor:
                 ]
 
             # Find existing indexes
-            if reuse_frames:
-                existing_indexes = [
+            existing_indexes = (
+                [
                     int(os.path.splitext(basename)[0].split("_")[-1])
                     for basename in _list_existing_frames()
                 ]
-                if existing_indexes:
-                    obj, template = (
-                        ds.drop_isel({time_name: existing_indexes})
-                        for ds in (obj, template)
-                    )
+                if reuse_frames
+                else []
+            )
+            if existing_indexes:
+                obj, template = (
+                    ds.drop_isel({time_name: existing_indexes})
+                    for ds in (obj, template)
+                )
 
             # Create frames using dask
-            if obj.sizes[time_name] or not existing_indexes:
+            if len(existing_indexes) != time_size:
                 with ProgressBar():
                     print(f"Creating frames: {os.path.abspath(frames_dir)}/")
                     obj.map_blocks(_save_frame, template=template).compute()
             else:
-                print(f"All frames already exist in {os.path.abspath(frames_dir)}")
+                print(f"All frames already exist: {os.path.abspath(frames_dir)}/")
 
             # Create movie
             print(
