@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 
 import cf_xarray  # noqa: F401 pylint: disable=W0611
-import gsw
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
+from gsw import CT_from_pt, SA_from_SP, p_from_z, sigma0
 from imageio import imread, mimwrite
-from xarray import DataArray, Dataset
+from xarray import DataArray, Dataset, apply_ufunc
 from xesmf import Regridder
 from xgcm import Grid
 
@@ -367,8 +367,13 @@ class Accessor:
         lon = prac_sal.cf["longitude"]
         lat = prac_sal.cf["latitude"]
         depth = prac_sal.cf["vertical"]
-        press = gsw.p_from_z(depth if depth.attrs["positive"] == "up" else -depth, lat)
-        abs_sal = gsw.SA_from_SP(prac_sal, press, lon, lat)
+        press = apply_ufunc(
+            p_from_z,
+            depth if depth.attrs["positive"] == "up" else -depth,
+            lat,
+            dask="allowed",
+        )
+        abs_sal = apply_ufunc(SA_from_SP, prac_sal, press, lon, lat, dask="allowed")
 
         # Attributes
         abs_sal.attrs["standard_name"] = "sea_water_absolute_salinity"
@@ -392,7 +397,7 @@ class Accessor:
         # Compute conservative temperature
         abs_sal = self.sea_water_absolute_salinity
         pot_tem = self._obj.cf["sea_water_potential_temperature"]
-        con_tem = gsw.CT_from_pt(abs_sal, pot_tem)
+        con_tem = apply_ufunc(CT_from_pt, abs_sal, pot_tem, dask="allowed")
 
         # Attributes
         con_tem.attrs["standard_name"] = "sea_water_conservative_temperature"
@@ -416,7 +421,7 @@ class Accessor:
         # Compute potential temperature
         abs_sal = self.sea_water_absolute_salinity
         con_tem = self.sea_water_conservative_temperature
-        pot_den = gsw.sigma0(abs_sal, con_tem)
+        pot_den = apply_ufunc(sigma0, abs_sal, con_tem, dask="allowed")
 
         # Attributes
         pot_den.attrs["standard_name"] = "sea_water_sigma_theta"
