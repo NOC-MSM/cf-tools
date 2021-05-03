@@ -8,9 +8,7 @@ import xarray as xr
 
 from .conftest import data_path
 
-open_kwargs = dict(
-    concat_dim="time_counter", data_vars="minimal", coords="minimal", compat="override"
-)
+open_kwargs = dict(data_vars="minimal", coords="minimal", compat="override")
 orca2_ice_pisces_path = os.path.join(data_path, "ORCA2_ICE_PISCES")
 orca2_ice_pisces = dict(
     domain_cfg=xr.open_dataset(
