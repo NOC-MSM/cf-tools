@@ -10,10 +10,11 @@ dependencies:
   - imageio
   - matplotlib
   - gsw
+  - pys2index
   - pooch
   - pip
   - pip:
       - git+https://github.com/pydata/xarray
       - git+https://github.com/xgcm/xgcm
       - git+https://github.com/xarray-contrib/cf-xarray
-      - git+https://github.com/pangeo-data/xESMF
+      - git+https://github.com/xarray-contrib/xoak.git

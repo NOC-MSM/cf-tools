@@ -10,11 +10,11 @@ import cf_xarray  # noqa: F401 pylint: disable=W0611
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+import xoak  # noqa: F401 pylint: disable=W0611
 from dask.diagnostics import ProgressBar
 from gsw import CT_from_pt, SA_from_SP, p_from_z, sigma0
 from imageio import imread, mimwrite
 from xarray import DataArray, Dataset, apply_ufunc
-from xesmf import Regridder
 from xgcm import Grid
 
 from .utils import _return_if_exists
@@ -216,19 +216,28 @@ class Accessor:
                 f" Available grids: {set(self._separated_arakawa_grids)!r}"
             ) from exc
 
-        # Find indexes defining the transect (exclude first/last row/column)
+        # Define input/output datasets to find indexes
         ds_in = ds.cf[["longitude", "latitude"]]
+        ds_in = ds_in.cf.rename(longitude="lon", latitude="lat")
         if no_boundaries:
+            # Exclude first/last row/column
             ds_in = ds_in.cf.isel(X=slice(1, -1), Y=slice(1, -1))
-        ds_out = Dataset(dict(lon=lons, lat=lats))
-        regridder = Regridder(ds_in, ds_out, "nearest_s2d", locstream_out=True)
-        iinds, jinds = xr.broadcast(
+        ds_out = Dataset(dict(lon=DataArray(lons), lat=DataArray(lats)))
+        ds_in["iinds"], ds_in["jinds"] = xr.broadcast(
             *(
                 DataArray(range(ds_in.cf.sizes[axis]), dims=ds_in.cf[axis].dims)
                 for axis in ("X", "Y")
             )
         )
-        iinds, jinds = (regridder(inds).values.astype(int) for inds in (iinds, jinds))
+
+        # Find indexes using xesmf
+        # regridder = Regridder(ds_in, ds_out, "nearest_s2d", locstream_out=True)
+        # ds_out = regridder(ds_in)
+
+        # Find indexes using xoak
+        ds_in.xoak.set_index(["lat", "lon"], "s2point")
+        ds_out = ds_in.xoak.sel(lat=ds_out.lat, lon=ds_out.lon)
+        iinds, jinds = (ds_out[inds].values.astype(int) for inds in ("iinds", "jinds"))
 
         # Add points halving steps until -1 <= step <= 1
         insert_inds = None
