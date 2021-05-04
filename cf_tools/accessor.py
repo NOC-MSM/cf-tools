@@ -172,6 +172,90 @@ class Accessor:
 
         return {key: obj.drop_dims(value) for key, value in dims_to_drop.items()}
 
+    def extract_single_grid_transect(
+        self,
+        lons: List[float],
+        lats: List[float],
+        grid: str,
+        no_boundaries: bool = False,
+    ) -> Dataset:
+        """
+        Return a transect defined by selected grid points.
+        Fields are NOT interpolated
+
+        Parameters
+        ----------
+        lons: list
+            Longitudes defining the transect
+        lats: list
+            Latitudes defining the transect
+        grid: str
+            Grid points.
+            Options: {"T", "U", "V", "F"}
+        no_boundaries: bool
+            Exclude first and last rows/columns of the grid
+
+        Returns
+        -------
+        Dataset
+            Transect defined by selected grid points
+
+        Raises
+        ------
+        KeyError
+            If the grid selected is not a valid grid of the underlying dataset.
+        """
+        # pylint: disable=R0914
+
+        # Extract ds
+        try:
+            ds = self._separated_arakawa_grids[grid]
+        except KeyError as exc:
+            raise KeyError(
+                f"{grid!r} is not a valid `grid` of the underlying dataset."
+                f" Available grids: {set(self._separated_arakawa_grids)!r}"
+            ) from exc
+
+        # Find indexes defining the transect (exclude first/last row/column)
+        ds_in = ds.cf[["longitude", "latitude"]]
+        if no_boundaries:
+            ds_in = ds_in.cf.isel(X=slice(1, -1), Y=slice(1, -1))
+        ds_out = Dataset(dict(lon=lons, lat=lats))
+        regridder = Regridder(ds_in, ds_out, "nearest_s2d", locstream_out=True)
+        iinds, jinds = xr.broadcast(
+            *(
+                DataArray(range(ds_in.cf.sizes[axis]), dims=ds_in.cf[axis].dims)
+                for axis in ("X", "Y")
+            )
+        )
+        iinds, jinds = (regridder(inds).values.astype(int) for inds in (iinds, jinds))
+
+        # Add points halving steps until -1 <= step <= 1
+        insert_inds = None
+        while insert_inds is None or len(insert_inds):
+            idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
+            mask = np.logical_or(np.abs(idiff) > 1, np.abs(jdiff) > 1)
+            insert_inds = np.where(mask)[0]
+            iinds, jinds = (
+                np.insert(
+                    inds, insert_inds + 1, inds[insert_inds] + diff[insert_inds] // 2
+                )
+                for inds, diff in zip([iinds, jinds], [idiff, jdiff])
+            )
+
+        # Remove diagonal jumps
+        idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
+        mask = np.logical_and(idiff, jdiff)
+        insert_inds = np.where(mask)[0]
+        iinds = np.insert(iinds, insert_inds + 1, iinds[insert_inds + 1])
+        jinds = np.insert(jinds, insert_inds + 1, jinds[insert_inds])
+        if no_boundaries:
+            iinds, jinds = (inds + 1 for inds in (iinds, jinds))
+
+        return ds.cf.isel(
+            X=DataArray(iinds, dims="station"), Y=DataArray(jinds, dims="station")
+        )
+
     def extract_transect_along_f(self, lons: List[float], lats: List[float]) -> Dataset:
         """
         Return a transect defined by U and V grid points.
@@ -191,8 +275,7 @@ class Accessor:
         """
 
         # Extract transect defined by F points.
-        arakawas = self._separated_arakawa_grids
-        ds = _extract_transect(arakawas["F"], lons, lats, no_boundaries=True)
+        ds = self.extract_single_grid_transect(lons, lats, grid="F", no_boundaries=True)
 
         # F: average adjacent points.
         coords = {
@@ -204,6 +287,7 @@ class Accessor:
         for coord, da in coords.items():
             ds[coord] = da
         ds["station"] = ds["station"]
+        arakawas = self._separated_arakawa_grids
         arakawas["F"] = ds
 
         # U, V: no interpolation.
@@ -309,8 +393,8 @@ class Accessor:
     @_return_if_exists
     def ocean_volume_transport_across_line(
         self,
-        flip_x: Optional[bool] = None,
-        flip_y: Optional[bool] = None,
+        flip_x: bool = False,
+        flip_y: bool = False,
         mask: Optional[DataArray] = None,
     ):
         """
@@ -318,9 +402,9 @@ class Accessor:
 
         Parameters
         ----------
-        flip_x: bool, optional
+        flip_x: bool
             Whether to flip x-velocity
-        flip_y: bool, optional
+        flip_y: bool
             Whether to flip y-velocity
         mask: DataArray, optional
             Mask to apply to the velocities
@@ -584,53 +668,3 @@ class Accessor:
                 for basename in _list_existing_frames()
             ]
             mimwrite(**mimwrite_kwargs)
-
-
-def _extract_transect(
-    ds: Dataset,
-    lons: List[float],
-    lats: List[float],
-    no_boundaries: Optional[bool] = None,
-) -> Dataset:
-
-    # Find indexes defining the transect (exclude first/last row/column)
-    ds_in = ds.cf[["longitude", "latitude"]]
-    if no_boundaries:
-        ds_in = ds_in.cf.isel(X=slice(1, -1), Y=slice(1, -1))
-    ds_out = Dataset(dict(lon=lons, lat=lats))
-    regridder = Regridder(ds_in, ds_out, "nearest_s2d", locstream_out=True)
-    iinds, jinds = xr.broadcast(
-        *(
-            DataArray(range(ds_in.cf.sizes[axis]), dims=ds_in.cf[axis].dims)
-            for axis in ("X", "Y")
-        )
-    )
-    iinds, jinds = (regridder(inds).values.astype(int) for inds in (iinds, jinds))
-
-    # Add points halving steps until -1 <= step <= 1
-    insert_inds = None
-    while insert_inds is None or len(insert_inds):
-        idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
-        mask = np.logical_or(np.abs(idiff) > 1, np.abs(jdiff) > 1)
-        insert_inds = np.where(mask)[0]
-        iinds, jinds = (
-            np.insert(inds, insert_inds + 1, inds[insert_inds] + diff[insert_inds] // 2)
-            for inds, diff in zip([iinds, jinds], [idiff, jdiff])
-        )
-
-    # Remove diagonal jumps
-    idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
-    mask = np.logical_and(idiff, jdiff)
-    insert_inds = np.where(mask)[0]
-    iinds = np.insert(iinds, insert_inds + 1, iinds[insert_inds + 1])
-    jinds = np.insert(jinds, insert_inds + 1, jinds[insert_inds])
-    if no_boundaries:
-        iinds, jinds = (inds + 1 for inds in (iinds, jinds))
-
-    # Sanity check
-    idiff, jdiff = (np.diff(inds) for inds in (iinds, jinds))
-    assert all(idiff * jdiff == 0) & all(np.abs(idiff + jdiff) == 1), "Path has jumps"
-
-    return ds.cf.isel(
-        X=DataArray(iinds, dims="station"), Y=DataArray(jinds, dims="station")
-    )

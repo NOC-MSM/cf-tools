@@ -16,9 +16,7 @@ from ..utils import assign_coordinates_and_measures
 from .accessor import NemoAccessor  # noqa: F401 pylint: disable=W0611
 
 
-def standardize_domain(
-    ds: Dataset, add_missing_coords: Optional[None] = None
-) -> Dataset:
+def standardize_domain(ds: Dataset, add_missing_coords: bool = False) -> Dataset:
     """
     Make NEMO mesh_mask or domain_cfg CF and COMODO compliant.
 
@@ -26,7 +24,7 @@ def standardize_domain(
     ----------
     ds: Dataset
         xarray representation of a mesh_mask or domain_cfg
-    add_missing_coords: bool, optional
+    add_missing_coords: bool
         Add missing coordinates, such as vertical
 
     Returns
@@ -85,7 +83,7 @@ def standardize_output(
     ds: Dataset,
     domain: Dataset,
     hgrid: Optional[str] = None,
-    add_missing_coords: Optional[None] = None,
+    add_missing_coords: bool = False,
 ) -> Dataset:
     """
     Make NEMO output CF and COMODO compliant.
@@ -101,7 +99,7 @@ def standardize_output(
     hgrid: str, optional
         Horizontal grid. Options: {"T", "U", "V", "F"}
 
-    add_missing_coords: bool, optional
+    add_missing_coords: bool
         Add missing coordinates, such as vertical
 
     Returns
