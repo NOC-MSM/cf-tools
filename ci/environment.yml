@@ -11,6 +11,7 @@ dependencies:
   - xarray
   - cf_xarray
   - xgcm
-  - xesmf
   - gsw
+  - xoak
+  - pys2index
   - pip
