@@ -8,6 +8,7 @@ from glob import glob
 from tempfile import TemporaryDirectory
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 import xarray as xr
 from numpy.testing import assert_equal
@@ -308,6 +309,13 @@ def test_transport():
     expected = ds["vo"] * (ds["e1v"] * ds["e3v"])
     actual = ds.nemo_tools.ocean_volume_y_transport
     assert_equal(expected.values, actual.values)
+
+
+@pytest.mark.parametrize("grid", ["T", "U", "V", "F"])
+def test_extract_single_grid_transect(grid):
+    ds = std_ds.nemo_tools.extract_single_grid_transect(lons, lats, grid)
+    idiff, jdiff = (np.diff(ds.cf[inds].values) for inds in ["X", "Y"])
+    assert all(idiff * jdiff == 0) & all(np.abs(idiff + jdiff) == 1)
 
 
 @pytest.mark.parametrize("flip", [[], ["x"], ["y"], ["x", "y"]])
