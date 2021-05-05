@@ -161,12 +161,11 @@ def standardize_output(
         # Rename area
         if "area" in ds.variables:
             ds = ds.rename(area="area" + hgrid.lower())
-            for var in ds.variables:
-                da = ds[var]
-                if "cell_measures" in da.attrs:
-                    da.attrs["cell_measures"] = da.attrs["cell_measures"].replace(
-                        "area: area", "area: area" + hgrid.lower()
-                    )
+            for var, variable in ds.variables.items():
+                if "cell_measures" in variable.attrs:
+                    variable.attrs["cell_measures"] = variable.attrs[
+                        "cell_measures"
+                    ].replace("area: area", "area: area" + hgrid.lower())
 
         # Rename
         ds = ds.rename(rename_dict)
@@ -205,90 +204,98 @@ def _add_missing_attrs(ds: Dataset) -> Dataset:
     }
 
     unrecognized = set()
-    for var in ds.variables:
+    for var, variable in ds.variables.items():
 
         # NEMO flags
         if var in namflags:
-            ds[var].attrs.setdefault("long_name", namflags[var])
+            variable.attrs.setdefault("long_name", namflags[var])
 
         # Coordinates
         elif var in ["x" + suffix for suffix in coord_suffixes]:
-            ds[var].attrs.setdefault("long_name", "x-dimension of the grid")
+            variable.attrs.setdefault("long_name", "x-dimension of the grid")
 
         elif var in ["y" + suffix for suffix in coord_suffixes]:
-            ds[var].attrs.setdefault("long_name", "y-dimension of the grid")
+            variable.attrs.setdefault("long_name", "y-dimension of the grid")
 
         elif var in ["z" + suffix for suffix in coord_suffixes]:
-            ds[var].attrs.setdefault("long_name", "z-dimension of the grid")
+            variable.attrs.setdefault("long_name", "z-dimension of the grid")
 
         # Variables
         elif var.startswith("e1"):
-            ds[var].attrs.setdefault("long_name", "Grid spacing in the x direction")
-            ds[var].attrs.setdefault("units", "m")
+            variable.attrs.setdefault("long_name", "Grid spacing in the x direction")
+            variable.attrs.setdefault("units", "m")
 
         elif var.startswith("e2"):
-            ds[var].attrs.setdefault("long_name", "Grid spacing in the y direction")
-            ds[var].attrs.setdefault("units", "m")
+            variable.attrs.setdefault("long_name", "Grid spacing in the y direction")
+            variable.attrs.setdefault("units", "m")
 
         elif var.startswith("e3"):
-            ds[var].attrs.setdefault("standard_name", "cell_thickness")
-            ds[var].attrs.setdefault("long_name", "Cell thickness")
-            ds[var].attrs.setdefault("units", "m")
+            variable.attrs.setdefault("standard_name", "cell_thickness")
+            variable.attrs.setdefault("long_name", "Cell thickness")
+            variable.attrs.setdefault("units", "m")
 
         elif var.startswith("ff"):
-            ds[var].attrs.setdefault("standard_name", "coriolis_parameter")
-            ds[var].attrs.setdefault("long_name", "Coriolis parameter")
-            ds[var].attrs.setdefault("units", "s-1")
+            variable.attrs.setdefault("standard_name", "coriolis_parameter")
+            variable.attrs.setdefault("long_name", "Coriolis parameter")
+            variable.attrs.setdefault("units", "s-1")
 
         elif var.startswith("gdep"):
-            ds[var].attrs.setdefault("standard_name", "depth")
-            ds[var].attrs.setdefault("long_name", "Depth")
-            ds[var].attrs.setdefault("units", "m")
-            ds[var].attrs.setdefault("positive", "down")
+            variable.attrs.setdefault("standard_name", "depth")
+            variable.attrs.setdefault("long_name", "Depth")
+            variable.attrs.setdefault("units", "m")
+            variable.attrs.setdefault("positive", "down")
 
         elif var.startswith("glam"):
-            ds[var].attrs.setdefault("standard_name", "longitude")
-            ds[var].attrs.setdefault("long_name", "Longitude")
-            ds[var].attrs.setdefault("units", "degree_east")
+            variable.attrs.setdefault("standard_name", "longitude")
+            variable.attrs.setdefault("long_name", "Longitude")
+            variable.attrs.setdefault("units", "degree_east")
 
         elif var.startswith("gphi"):
-            ds[var].attrs.setdefault("standard_name", "latitude")
-            ds[var].attrs.setdefault("long_name", "Latitude")
-            ds[var].attrs.setdefault("units", "degree_north")
+            variable.attrs.setdefault("standard_name", "latitude")
+            variable.attrs.setdefault("long_name", "Latitude")
+            variable.attrs.setdefault("units", "degree_north")
 
         elif var.endswith("mask"):
-            ds[var].attrs.setdefault("standard_name", "sea_binary_mask")
-            ds[var].attrs.setdefault("long_name", "Sea mask (1 = sea, 0 = land)")
-            ds[var].attrs.setdefault("units", "1")
+            variable.attrs.setdefault("standard_name", "sea_binary_mask")
+            variable.attrs.setdefault("long_name", "Sea mask (1 = sea, 0 = land)")
+            variable.attrs.setdefault("units", "1")
 
         elif var.endswith("maskutil"):
-            ds[var].attrs.setdefault("standard_name", "sea_binary_mask")
-            ds[var].attrs.setdefault(
+            variable.attrs.setdefault("standard_name", "sea_binary_mask")
+            variable.attrs.setdefault(
                 "long_name", "Sea surface mask (1 = sea, 0 = land)"
             )
-            ds[var].attrs.setdefault("units", "1")
+            variable.attrs.setdefault("units", "1")
 
-        elif var in ["bathy_metry", "bathy_meter"]:
-            ds[var].attrs.setdefault("standard_name", "sea_floor_depth_below_geoid")
-            ds[var].attrs.setdefault("long_name", "Bathymetry")
-            ds[var].attrs.setdefault("units", "m")
+        elif var in ["bathy_metry", "bathy_meter", "hw"]:
+            variable.attrs.setdefault("standard_name", "sea_floor_depth_below_geoid")
+            variable.attrs.setdefault("long_name", "Bathymetry")
+            variable.attrs.setdefault("units", "m")
 
-        elif var in ["mbathy", "bottom_level"]:
-            ds[var].attrs.setdefault("standard_name", "model_level_number_at_sea_floor")
-            ds[var].attrs.setdefault("long_name", "Last wet point")
-            ds[var].attrs.setdefault("units", "1")
+        elif var in ["mbathy", "bottom_level", "mhw"]:
+            variable.attrs.setdefault(
+                "standard_name", "model_level_number_at_sea_floor"
+            )
+            variable.attrs.setdefault("long_name", "Last wet point")
+            variable.attrs.setdefault("units", "1")
 
         elif var in ["misf", "top_level"]:
-            ds[var].attrs.setdefault(
+            variable.attrs.setdefault(
                 "long_name", "First wet point expressed in model levels"
             )
-            ds[var].attrs.setdefault("units", "1")
+            variable.attrs.setdefault("units", "1")
 
         elif var == "isfdraft":
-            ds[var].attrs.setdefault(
+            variable.attrs.setdefault(
                 "long_name", "Ice shelf draft expressed in model levels"
             )
-            ds[var].attrs.setdefault("units", "m")
+            variable.attrs.setdefault("units", "m")
+
+        elif var == "stiffness":
+            variable.attrs.setdefault(
+                "long_name", "Haney (1991) hydrostatic condition ratio"
+            )
+            variable.attrs.setdefault("units", "1")
 
         else:
             unrecognized.add(var)
@@ -299,10 +306,23 @@ def _add_missing_attrs(ds: Dataset) -> Dataset:
             UserWarning,
         )
 
+    # Remove duplicates
+    for std_name in ["sea_floor_depth_below_geoid", "model_level_number_at_sea_floor"]:
+        var_names = sorted(ds.cf.standard_names.get(std_name, []))
+        if len(var_names) > 1:
+            for var in var_names[1:]:
+                ds[var].attrs.pop("standard_name")
+            warnings.warn(
+                f"There are multiple variables with standard_name {std_name!r}:"
+                f" {var_names!r}. The standard_name attribute has therefore been"
+                f" removed from {var_names[1:]}",
+                UserWarning,
+            )
+
     return ds
 
 
-def _place_on_grid(ds):
+def _place_on_grid(ds: Dataset) -> Dataset:
 
     roots = {"e1", "e2", "e3", "gdep", "glam", "gphi", "ff", "mask", "maskutil"}
     hgrids = {"f", "t", "u", "v", ""}
@@ -318,10 +338,13 @@ def _place_on_grid(ds):
         "bathy_meter",
         "top_level",
         "bottom_level",
+        "mhw",
+        "hw",
+        "stiffness",
     ]
 
     unrecognized = set()
-    for var in ds.variables:
+    for var, variable in ds.variables.items():
         if var in tvars:
             rename_dict = dict(X="x", Y="y")
         elif any(
@@ -370,7 +393,7 @@ def _place_on_grid(ds):
             )
         else:
             # Skip coordinates and dimensionless variables
-            if ds[var].dims and var not in sum(ds.cf.axes.values(), []):
+            if variable.dims and var not in sum(ds.cf.axes.values(), []):
                 unrecognized.add(var)
             continue
 
