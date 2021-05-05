@@ -306,6 +306,19 @@ def _add_missing_attrs(ds: Dataset) -> Dataset:
             UserWarning,
         )
 
+    # Remove duplicates
+    for std_name in ["sea_floor_depth_below_geoid", "model_level_number_at_sea_floor"]:
+        var_names = sorted(ds.cf.standard_names.get(std_name, []))
+        if len(var_names) > 1:
+            for var in var_names[1:]:
+                ds[var].attrs.pop("standard_name")
+            warnings.warn(
+                f"There are multiple variables with standard_name {std_name!r}:"
+                f" {var_names!r}. The standard_name attribute has therefore been"
+                f" removed from {var_names[1:]}",
+                UserWarning,
+            )
+
     return ds
 
 
