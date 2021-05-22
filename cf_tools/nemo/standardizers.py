@@ -37,10 +37,10 @@ def standardize_domain(ds: Dataset, add_missing_coords: bool = False) -> Dataset
     if "nav_lev" in ds.dims:
         ds = ds.rename_dims(nav_lev="z")
 
-    # Guess
+    # Guess (don't guess parameters, and isfdraft as it starts with i
     ds = ds.assign_coords({dim: ds[dim] for dim in ds.dims})
-    ds = ds.set_coords(ds.variables)
-    ds = ds.cf.guess_coord_axis()
+    vars2guess = [var for var in ds.variables if ds[var].dims and var != "isfdraft"]
+    ds = ds.set_coords(vars2guess).cf.guess_coord_axis()
 
     # Squeeze
     ds = ds.cf.squeeze([key for key in ["time", "T"] if key in ds.cf], drop=True)
