@@ -35,4 +35,4 @@ repos:
     rev: v0.902
     hooks:
        - id: mypy
-       - additional_dependencies: [types-pkg_resources]
+         additional_dependencies: [types-pkg_resources]
