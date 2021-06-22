@@ -92,13 +92,10 @@ def standardize_output(
     ----------
     ds: Dataset
         xarray representation of NEMO output on a single grid
-
     domain: Dataset
         xarray representation of a mesh_mask or domain_cfg
-
     hgrid: str, optional
         Horizontal grid. Options: {"T", "U", "V", "F"}
-
     add_missing_coords: bool
         Add missing coordinates, such as vertical
 
