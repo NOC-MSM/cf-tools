@@ -26,7 +26,7 @@ std_ds = xr.merge(
         standardize_output(
             orca2_ice_pisces[key], std_mesh, hgrid="T" if key == "icemod" else None
         )
-        for key in {"grid_T", "grid_U", "grid_V", "grid_W", "icemod"}
+        for key in ("grid_T", "grid_U", "grid_V", "grid_W", "icemod")
     ],
     compat="override",
 )

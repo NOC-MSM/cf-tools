@@ -134,7 +134,7 @@ class NemoAccessor(Accessor):
                 metrics[xgcm_name] = metric
 
         # Kwargs
-        kwargs = dict()
+        kwargs = {}
         if periodic is not None:
             kwargs["periodic"] = periodic
         kwargs["metrics"] = metrics

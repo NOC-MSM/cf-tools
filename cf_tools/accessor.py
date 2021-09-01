@@ -115,7 +115,7 @@ class Accessor:
             )
 
         # Kwargs
-        kwargs = dict()
+        kwargs = {}
         if periodic is not None:
             kwargs["periodic"] = periodic
 
