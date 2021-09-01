@@ -111,7 +111,7 @@ def standardize_output(
     """
 
     if not any(
-        dim.endswith(suffix) for dim in ds.dims for suffix in {"_left", "_right"}
+        dim.endswith(suffix) for dim in ds.dims for suffix in ("_left", "_right")
     ):
         rename_dict: Dict[str, str] = {}
         hgrid = hgrid.upper() if hgrid else ""
@@ -375,14 +375,14 @@ def _place_on_grid(ds: Dataset) -> Dataset:
                 X="x_right"
                 if any(
                     var_nosuffix.endswith(hgrid + vgrid)
-                    for hgrid in {"u", "f"}
+                    for hgrid in ("u", "f")
                     for vgrid in vgrids
                 )
                 else "x",
                 Y="y_right"
                 if any(
                     var_nosuffix.endswith(hgrid + vgrid)
-                    for hgrid in {"v", "f"}
+                    for hgrid in ("v", "f")
                     for vgrid in vgrids
                 )
                 else "y",
@@ -395,7 +395,7 @@ def _place_on_grid(ds: Dataset) -> Dataset:
             continue
 
         if var.endswith("_1d"):
-            for axis in {"X", "Y"}:
+            for axis in ("X", "Y"):
                 rename_dict.pop(axis)
         ds = _rename_var_axes(ds, var, rename_dict)
 
