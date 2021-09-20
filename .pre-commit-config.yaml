@@ -12,7 +12,7 @@ repos:
       - id: isort
 
   - repo: https://github.com/psf/black
-    rev: 21.8b0
+    rev: 21.9b0
     hooks:
       - id: black
 
@@ -27,7 +27,7 @@ repos:
        - id: darglint
 
   - repo: https://github.com/PyCQA/pylint
-    rev: v2.10.2
+    rev: v2.11.1
     hooks:
        - id: pylint
 
