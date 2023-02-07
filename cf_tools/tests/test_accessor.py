@@ -9,7 +9,6 @@ import cf_tools  # noqa: F401 pylint: disable=W0611
 
 
 def test_options():
-
     airds.cf_tools.set_options(a=1)
     assert airds.cf_tools.options == dict(a=1)
 

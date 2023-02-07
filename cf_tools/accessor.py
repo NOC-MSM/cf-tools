@@ -123,7 +123,6 @@ class Accessor:
 
     @property
     def _separated_arakawa_grids(self) -> Dict[str, Dataset]:
-
         axes = self.grid(error=False).axes
         obj = self._obj
 
@@ -153,7 +152,6 @@ class Accessor:
 
     @property
     def _separated_vertical_grids(self) -> Dict[str, Dataset]:
-
         axes = self.grid(error=False).axes
         obj = self._obj
 
@@ -351,7 +349,6 @@ class Accessor:
         return xr.merge([arakawas_merged, self._obj[list(missing_vars)]])
 
     def _volume_flux_along_axis(self, axis: str):
-
         options = ("x", "y")
         assert axis in options, f"Axis `{axis}` not available. Options: {options}"
 
@@ -592,7 +589,6 @@ class Accessor:
 
         # Create tmp directory
         with tempfile.TemporaryDirectory() as tempdir:
-
             if frames_dir:
                 os.makedirs(frames_dir, exist_ok=True)
             else:
@@ -619,7 +615,6 @@ class Accessor:
                 return "frame_" + str(index).zfill(len(str(time_size)))
 
             def _save_frame(block):
-
                 fig = func(block, **kwargs)
                 index = np.argmin(np.abs(time_dim - block[time_name].values).values)
                 savefig_kwargs["fname"] = os.path.join(frames_dir, _frame_name(index))
@@ -635,7 +630,6 @@ class Accessor:
                 return template.sel({time_name: [index]})
 
             def _list_existing_frames():
-
                 expected_frames = {_frame_name(index) for index in range(time_size)}
                 return [
                     basename

@@ -45,7 +45,6 @@ def assign_coordinates_and_measures(
         measures[key] = value[::-1]
 
     for var in ds.variables:
-
         # Reset coordinates ans measures
         ds[var].attrs.pop("coordinates", None)
         ds[var].encoding.pop("coordinates", None)
