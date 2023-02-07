@@ -202,7 +202,6 @@ def _add_missing_attrs(ds: Dataset) -> Dataset:
 
     unrecognized = set()
     for var, variable in ds.variables.items():
-
         # NEMO flags
         if var in namflags:
             variable.attrs.setdefault("long_name", namflags[var])
@@ -320,7 +319,6 @@ def _add_missing_attrs(ds: Dataset) -> Dataset:
 
 
 def _place_on_grid(ds: Dataset) -> Dataset:
-
     roots = {"e1", "e2", "e3", "gdep", "glam", "gphi", "ff", "mask", "maskutil"}
     hgrids = {"f", "t", "u", "v", ""}
     vgrids = {"w", ""}
@@ -409,7 +407,6 @@ def _place_on_grid(ds: Dataset) -> Dataset:
 
 
 def _rename_var_axes(ds: Dataset, var: str, rename_dict: Dict[str, str]) -> Dataset:
-
     da = ds.cf[var]
     da = da.cf.rename(**rename_dict)
     ds[var] = da.assign_coords({coord: ds[coord] for coord in da.coords})
@@ -418,7 +415,6 @@ def _rename_var_axes(ds: Dataset, var: str, rename_dict: Dict[str, str]) -> Data
 
 
 def _find_arbitrary_measures(ds: Dataset) -> Dict[str, List[str]]:
-
     arbitrary_measures = dict(
         x_spacing=[var for var in ds.variables if var.startswith("e1")],
         y_spacing=[var for var in ds.variables if var.startswith("e2")],
@@ -429,7 +425,6 @@ def _find_arbitrary_measures(ds: Dataset) -> Dict[str, List[str]]:
 
 
 def _swap_time(ds: Dataset) -> Dataset:
-
     # Upgrade time coordinates to dimensions
     dscounter = ds.cf[["time_counter"]]
     time2swap = None

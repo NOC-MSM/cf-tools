@@ -37,7 +37,6 @@ transect = std_ds.nemo_tools.extract_transect_along_f(lons, lats)
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
 def test_domain_axes(ds):
-
     actual = set(ds.cf.axes["X"])
     expected = {"x", "x_right"}
     assert actual == expected
@@ -55,7 +54,6 @@ def test_domain_axes(ds):
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
 def test_domain_coordinates(ds):
-
     actual = set(ds.cf.coordinates["longitude"])
     expected = {"glamt", "glamu", "glamv", "glamf"}
     assert actual == expected
@@ -77,7 +75,6 @@ def test_domain_coordinates(ds):
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
 def test_domain_cell_measures(ds):
-
     actual = set(ds.cf.cell_measures["x_spacing"])
     expected = (
         {"e1t", "e1u", "e1v", "e1f"}
@@ -105,7 +102,6 @@ def test_domain_cell_measures(ds):
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
 def test_domain_standard_names(ds):
-
     actual = set(ds.cf.standard_names["cell_thickness"])
     expected = {
         "e3t_0",
@@ -143,7 +139,6 @@ def test_domain_standard_names(ds):
 
 @pytest.mark.parametrize("ds", [std_domain, std_mesh])
 def test_recreate_domain(ds):
-
     # Recreate identical objects
     ds1 = standardize_domain(ds)
     assert_identical(ds, ds1)
@@ -161,7 +156,6 @@ def test_recreate_domain(ds):
 )
 @pytest.mark.parametrize("domain", [std_mesh, std_domain])
 def test_output(ds, domain, dims, hgrid):
-
     # Test error
     if hgrid:
         with pytest.raises(ValueError):
@@ -187,7 +181,6 @@ def test_output(ds, domain, dims, hgrid):
 
 
 def test_all_output():
-
     domain = std_mesh
     ds = std_ds
 
@@ -233,7 +226,6 @@ def test_all_output():
 
 
 def test_sea_floor_depth_below_geoid():
-
     ds = std_mesh
     bathy = ds.nemo_tools.sea_floor_depth_below_geoid
     depth = ds["gdept_0"]
@@ -245,7 +237,6 @@ def test_sea_floor_depth_below_geoid():
 
 
 def test_vertical():
-
     expected = std_mesh.cf[["vertical"]]
     actual = std_domain.nemo_tools.vertical
     for var in actual.cf.coordinates["vertical"]:
@@ -254,7 +245,6 @@ def test_vertical():
 
 
 def test_transect():
-
     ds = std_ds
 
     # Dimensions
@@ -287,7 +277,6 @@ def test_transect():
 
 
 def test_transport():
-
     ds = std_ds
 
     # Don't compute
@@ -320,7 +309,6 @@ def test_extract_single_grid_transect(grid):
 
 @pytest.mark.parametrize("flip", [[], ["x"], ["y"], ["x", "y"]])
 def test_section_transport(flip):
-
     ds = transect
     ds = ds.drop_vars(["uocetr_eff", "vocetr_eff"])
 
@@ -365,7 +353,6 @@ def test_movie():
 
 
 def test_density():
-
     expected = std_ds.cf["rhop"].where(std_ds["rhop"] != 0) - 1.0e3
     actual = std_ds.drop_vars("rhop").nemo_tools.sea_water_sigma_theta
     mask = expected.notnull()

@@ -15,7 +15,6 @@ URL = "https://ndownloader.figshare.com/files/27249593"
 
 
 def pytest_configure():
-
     # Download data
     if not os.path.exists(data_path):
         # Download data
