@@ -370,20 +370,24 @@ def _place_on_grid(ds: Dataset) -> Dataset:
                 if var.endswith(suffix):
                     var_nosuffix = var.replace(suffix, "")
             rename_dict = dict(
-                X="x_right"
-                if any(
-                    var_nosuffix.endswith(hgrid + vgrid)
-                    for hgrid in ("u", "f")
-                    for vgrid in vgrids
-                )
-                else "x",
-                Y="y_right"
-                if any(
-                    var_nosuffix.endswith(hgrid + vgrid)
-                    for hgrid in ("v", "f")
-                    for vgrid in vgrids
-                )
-                else "y",
+                X=(
+                    "x_right"
+                    if any(
+                        var_nosuffix.endswith(hgrid + vgrid)
+                        for hgrid in ("u", "f")
+                        for vgrid in vgrids
+                    )
+                    else "x"
+                ),
+                Y=(
+                    "y_right"
+                    if any(
+                        var_nosuffix.endswith(hgrid + vgrid)
+                        for hgrid in ("v", "f")
+                        for vgrid in vgrids
+                    )
+                    else "y"
+                ),
                 Z="z_left" if var_nosuffix.endswith("w") else "z",
             )
         else:

@@ -1,6 +1,7 @@
 """
 Tests specific for NEMO
 """
+
 # pylint: disable=C0116
 
 import os
@@ -122,9 +123,11 @@ def test_domain_standard_names(ds):
 
     actual = set(ds.cf.standard_names["model_level_number_at_sea_floor"])
     expected = {
-        "mbathy"
-        if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
-        else "bottom_level"
+        (
+            "mbathy"
+            if os.path.basename(ds.encoding["source"]) == "mesh_mask.nc"
+            else "bottom_level"
+        )
     }
     assert actual == expected
 
