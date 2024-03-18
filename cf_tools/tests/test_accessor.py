@@ -1,6 +1,7 @@
 """
 Tests accessor for all models
 """
+
 # pylint: disable=C0116
 
 from cf_xarray.datasets import airds
